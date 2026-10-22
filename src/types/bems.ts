@@ -9,6 +9,8 @@ export interface Bank {
   emergencyContact: string;
   branchManager: string;
   policeSector: string; // Polsek terdekat, misal: Polsek Tanjung Karang Barat
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Device {

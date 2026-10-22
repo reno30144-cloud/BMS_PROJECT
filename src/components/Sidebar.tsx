@@ -1,24 +1,35 @@
 'use client';
 
-import React from 'react';
-import { ShieldAlert, Radio, Building2, History, Settings, Cpu, ShieldCheck } from 'lucide-react';
+import React, { useState } from 'react';
+import { Radio, Building2, History, Cpu, ShieldCheck, ChevronRight, Map, X } from 'lucide-react';
 import { LogoutButton } from '@/components/LogoutButton';
+import { ProfileModal } from '@/components/ProfileModal';
 
 interface SidebarProps {
-  activeTab: 'monitoring' | 'banks' | 'history' | 'simulator';
-  setActiveTab: (tab: 'monitoring' | 'banks' | 'history' | 'simulator') => void;
+  activeTab: 'monitoring' | 'map' | 'banks' | 'history' | 'simulator';
+  setActiveTab: (tab: 'monitoring' | 'map' | 'banks' | 'history' | 'simulator') => void;
   triggeredCount: number;
   operatorName?: string;
   operatorRole?: string;
+  operatorEmail?: string;
+  onUpdateName?: (newName: string) => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   triggeredCount,
-  operatorName = 'Bripka Dimas Pratama',
-  operatorRole = 'Operator Piket Regu A',
+  operatorName = 'Admin',
+  operatorRole = 'Piket SPKT • admin@polresta.id',
+  operatorEmail = 'admin@polresta.id',
+  onUpdateName,
+  isMobileOpen = false,
+  onCloseMobile,
 }) => {
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
   // Ambil inisial nama operator (contoh: "Dimas Pratama" -> "DP")
   const initials = operatorName
     .split(' ')
@@ -26,119 +37,248 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase())
     .join('') || 'OP';
-  return (
-    <aside className="w-72 bg-police-950 text-white flex flex-col justify-between border-r border-police-900 shrink-0 select-none shadow-2xl z-20">
-      <div>
-        {/* Header Identitas Institusi */}
-        <div className="p-6 border-b border-police-900/80 bg-gradient-to-b from-police-900 to-police-950">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-police-700 flex items-center justify-center shadow-lg shadow-emerald-900/40 border border-emerald-400/30">
-              <ShieldCheck className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold tracking-widest uppercase text-emerald-400">BEMS</span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-400/30 font-mono">v1.0-MVP</span>
+
+  const navItems = [
+    {
+      id: 'monitoring' as const,
+      label: 'Ruang Pantau',
+      icon: Radio,
+      badge: triggeredCount > 0 ? `${triggeredCount} BAHAYA` : null,
+      isEmergency: triggeredCount > 0,
+    },
+    {
+      id: 'map' as const,
+      label: 'Peta GIS Radar',
+      icon: Map,
+      badge: null,
+      isEmergency: false,
+    },
+    {
+      id: 'banks' as const,
+      label: 'Direktori Bank Mitra',
+      icon: Building2,
+      badge: null,
+      isEmergency: false,
+    },
+    {
+      id: 'history' as const,
+      label: 'Log Insiden & Audit',
+      icon: History,
+      badge: null,
+      isEmergency: false,
+    },
+    {
+      id: 'simulator' as const,
+      label: 'Simulasi IoT (ESP32)',
+      icon: Cpu,
+      badge: 'TEST',
+      isEmergency: false,
+    },
+  ];
+
+  const renderContent = (isMobileView: boolean) => (
+    <div className="flex flex-col h-full justify-between bg-[#102A43] text-white select-none">
+      {/* Bagian Atas: Header Brand & Navigasi (Bisa scroll jika layar pendek) */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {/* Header Identitas Institusi Polresta (Tanpa Kotak pada Logo) */}
+        <div className="p-5 border-b border-white/10 bg-[#102A43]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3.5 min-w-0">
+              {/* Logo Siger Polresta */}
+              <img
+                src="/logo.png"
+                alt="Logo Siger Polresta Bandar Lampung"
+                className="h-14 w-auto max-w-[62px] object-contain shrink-0 transition-transform duration-200 hover:scale-105 drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)] cursor-pointer"
+              />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-[10px] font-black tracking-widest uppercase bg-amber-500 text-white px-2 py-0.5 rounded-md font-mono shadow-xs">
+                    BEMS
+                  </span>
+                  <span className="text-[9px] font-mono font-semibold text-blue-200 bg-white/10 px-1.5 py-0.5 rounded border border-white/10">
+                    PRESISI
+                  </span>
+                </div>
+                <h1 className="text-base font-extrabold text-white tracking-tight leading-tight truncate">
+                  POLRESTA
+                </h1>
+                <p className="text-[11px] font-semibold text-amber-300 tracking-wide truncate">
+                  Bandar Lampung
+                </p>
               </div>
-              <h1 className="text-base font-bold text-white tracking-tight leading-tight">POLRESTA</h1>
-              <p className="text-xs text-slate-300 font-medium">Bandar Lampung</p>
             </div>
+
+            {/* Tombol Tutup Khusus Mobile Drawer */}
+            {isMobileView && (
+              <button
+                type="button"
+                onClick={onCloseMobile}
+                className="p-2 rounded-xl text-blue-200 hover:text-white hover:bg-white/10 min-w-[40px] min-h-[40px] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                title="Tutup Menu Navigasi"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
-          <div className="mt-4 pt-3 border-t border-police-900/60 flex items-center justify-between text-[11px] text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              Command Center SPKT
+
+          {/* Status Kesiagaan 24/7 */}
+          <div className="mt-3.5 pt-3 border-t border-white/10 flex items-center justify-between text-[11px]">
+            <span className="flex items-center gap-2 text-blue-100">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span>
+              </span>
+              <span className="font-medium text-blue-100">Command Center SPKT</span>
             </span>
-            <span className="text-emerald-400/80 font-mono">24/7 SIAGA</span>
+            <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/40 px-2 py-0.5 rounded-full font-mono tracking-wider shadow-xs">
+              24/7 SIAGA
+            </span>
           </div>
         </div>
 
-        {/* Menu Navigasi Utama */}
-        <nav className="p-4 space-y-1.5">
-          <button
-            onClick={() => setActiveTab('monitoring')}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
-              activeTab === 'monitoring'
-                ? 'bg-police-800 text-white shadow-md shadow-police-950 border border-emerald-500/30'
-                : 'text-slate-300 hover:bg-police-900 hover:text-white'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Radio className={`w-5 h-5 ${activeTab === 'monitoring' ? 'text-emerald-400' : 'text-slate-400'}`} />
-              <span>Ruang Pantau</span>
-            </div>
-            {triggeredCount > 0 && (
-              <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse shadow-lg shadow-red-600/50">
-                {triggeredCount} BAHAYA
-              </span>
-            )}
-          </button>
+        {/* Menu Navigasi Utama (Gaya Navy & Warm Amber Executive) */}
+        <nav className="p-4 space-y-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
 
-          <button
-            onClick={() => setActiveTab('banks')}
-            className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
-              activeTab === 'banks'
-                ? 'bg-police-800 text-white shadow-md shadow-police-950 border border-emerald-500/30'
-                : 'text-slate-300 hover:bg-police-900 hover:text-white'
-            }`}
-          >
-            <Building2 className={`w-5 h-5 ${activeTab === 'banks' ? 'text-emerald-400' : 'text-slate-400'}`} />
-            <span>Direktori Bank Mitra</span>
-          </button>
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(item.id);
+                  if (isMobileView) onCloseMobile?.();
+                }}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer group active:scale-[0.98] ${
+                  isActive
+                    ? 'bg-white/15 text-white font-bold border border-white/25 shadow-sm backdrop-blur-xs'
+                    : 'text-blue-100/75 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <Icon
+                    className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                      isActive ? 'text-amber-400 stroke-[2.4]' : 'text-blue-200/80 group-hover:text-white stroke-[2]'
+                    }`}
+                  />
+                  <span className={`truncate ${isActive ? 'font-bold text-white' : 'font-medium'}`}>
+                    {item.label}
+                  </span>
+                </div>
 
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
-              activeTab === 'history'
-                ? 'bg-police-800 text-white shadow-md shadow-police-950 border border-emerald-500/30'
-                : 'text-slate-300 hover:bg-police-900 hover:text-white'
-            }`}
-          >
-            <History className={`w-5 h-5 ${activeTab === 'history' ? 'text-emerald-400' : 'text-slate-400'}`} />
-            <span>Log Insiden & Audit</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('simulator')}
-            className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
-              activeTab === 'simulator'
-                ? 'bg-police-800 text-white shadow-md shadow-police-950 border border-emerald-500/30'
-                : 'text-slate-300 hover:bg-police-900 hover:text-white'
-            }`}
-          >
-            <Cpu className={`w-5 h-5 ${activeTab === 'simulator' ? 'text-emerald-400' : 'text-slate-400'}`} />
-            <span>Simulasi IoT (ESP32-C3)</span>
-          </button>
+                {/* Badge atau Indikator */}
+                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                  {item.badge && item.isEmergency && (
+                    <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full animate-pulse shadow-md shadow-red-600/50 flex items-center gap-1 border border-red-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                      {item.badge}
+                    </span>
+                  )}
+                  {item.badge && !item.isEmergency && (
+                    <span
+                      className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                        isActive
+                          ? 'bg-amber-500/25 text-amber-300 border border-amber-400/40'
+                          : 'bg-white/10 text-blue-200 border border-white/10'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                  {isActive && !item.badge && (
+                    <ChevronRight className="w-4 h-4 text-amber-400 stroke-[2.5]" />
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </nav>
       </div>
 
-      {/* Bagian Bawah / Info Shift Operator */}
-      <div className="p-4 border-t border-police-900/80 bg-police-950">
-        <div className="p-3 bg-police-900/60 rounded-xl border border-police-800/80 mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-police-700 border border-emerald-500/40 flex items-center justify-center font-bold text-xs text-emerald-300 shrink-0">
+      {/* Bagian Bawah: Profil Operator & Status Konektivitas (Gaya Card Executive Mockup) */}
+      <div className="shrink-0 p-4 border-t border-white/10 bg-[#102A43]/95 backdrop-blur-xs">
+        {/* Tombol Profil Operator */}
+        <button
+          onClick={() => setIsProfileOpen(true)}
+          type="button"
+          className="w-full text-left p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 hover:border-amber-400/40 mb-3 transition-all duration-200 cursor-pointer group flex items-center justify-between shadow-xs hover:shadow-md active:scale-[0.98]"
+          title="Klik untuk melihat Profil & Tentang Sistem"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Avatar Lingkaran Putih (mirip John Don pada mockup) */}
+            <div className="w-10 h-10 rounded-full bg-white text-[#102A43] flex items-center justify-center font-extrabold text-xs shrink-0 shadow-md border-2 border-amber-400/80 group-hover:scale-105 transition-transform">
               {initials}
             </div>
-            <div className="overflow-hidden">
-              <p className="text-xs font-semibold text-white truncate" title={operatorName}>
-                {operatorName}
-              </p>
-              <p className="text-[10px] text-slate-400 truncate">{operatorRole}</p>
+            <div className="overflow-hidden min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs font-bold text-white truncate group-hover:text-amber-300 transition-colors" title={operatorName}>
+                  {operatorName}
+                </p>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/30 px-1.5 py-0.2 rounded-md">
+                  PIKET
+                </span>
+                <p className="text-[10px] text-blue-200/80 truncate">{operatorRole.replace('Piket SPKT • ', '')}</p>
+              </div>
             </div>
           </div>
-        </div>
+          <ChevronRight className="w-4 h-4 text-blue-300 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all shrink-0 ml-1" />
+        </button>
 
         {/* Tombol Logout */}
-        <LogoutButton variant="sidebar" className="mb-3" />
+        <LogoutButton variant="sidebar" className="mb-3 rounded-xl" />
 
-        <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-          <span>Server Realtime</span>
-          <span className="text-emerald-400 font-mono flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        {/* Telemetry Status Bar */}
+        <div className="flex items-center justify-between text-[11px] text-blue-200/80 px-1 pt-0.5">
+          <span className="flex items-center gap-1.5 text-blue-200/90 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+            <span>Server Realtime</span>
+          </span>
+          <span className="text-amber-300 font-mono text-[10px] font-bold flex items-center gap-1.5 bg-amber-500/15 px-2 py-0.5 rounded-md border border-amber-400/30 shadow-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
             TERKONEKSI
           </span>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar (Permanent di Layar Lebar: h-full, w-72, solid background & no collapse) */}
+      <aside className="hidden lg:flex w-72 h-full bg-[#102A43] text-white flex-col border-r border-[#0D2338] shrink-0 select-none shadow-2xl z-30 relative overflow-hidden">
+        {renderContent(false)}
+      </aside>
+
+      {/* Mobile Sidebar Drawer Overlay (Di Layar HP / Tablet) */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-[100] flex lg:hidden">
+          {/* Backdrop Blur Gelap */}
+          <div
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            onClick={onCloseMobile}
+            aria-label="Tutup menu"
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-80 max-w-[85vw] bg-[#102A43] text-white flex flex-col h-full shadow-2xl overflow-hidden z-10 animate-in slide-in-from-left duration-200 border-r border-[#0D2338]">
+            {renderContent(true)}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Profil & Tentang Saya */}
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        operatorName={operatorName}
+        operatorRole={operatorRole}
+        operatorEmail={operatorEmail}
+        onUpdateName={onUpdateName}
+      />
+    </>
   );
 };

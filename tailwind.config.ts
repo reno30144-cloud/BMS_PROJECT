@@ -10,14 +10,14 @@ const config: Config = {
     extend: {
       colors: {
         police: {
-          950: "#061A14",
-          900: "#0A291F",
-          850: "#0D3528",
-          800: "#104132",
-          700: "#175B46",
-          600: "#1E755A",
-          100: "#D1FAE5",
-          50: "#ECFDF5",
+          950: "#0B1F33",
+          900: "#102A43",
+          850: "#163456",
+          800: "#1C416B",
+          700: "#244F81",
+          600: "#336699",
+          100: "#E2E8F0",
+          50: "#F0F4F8",
         },
       },
       animation: {
@@ -28,14 +28,12 @@ const config: Config = {
       keyframes: {
         emergencyPulse: {
           "0%, 100%": {
-            backgroundColor: "rgba(254, 242, 242, 0.95)",
-            borderColor: "rgba(239, 68, 68, 0.8)",
-            boxShadow: "0 0 25px rgba(239, 68, 68, 0.35)",
+            boxShadow: "0 10px 25px -5px rgba(239, 68, 68, 0.25)",
+            borderColor: "rgba(239, 68, 68, 0.9)",
           },
           "50%": {
-            backgroundColor: "rgba(254, 226, 226, 1)",
+            boxShadow: "0 15px 35px -5px rgba(239, 68, 68, 0.45)",
             borderColor: "rgba(220, 38, 38, 1)",
-            boxShadow: "0 0 45px rgba(239, 68, 68, 0.65)",
           },
         },
       },

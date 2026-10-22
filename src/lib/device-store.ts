@@ -41,6 +41,22 @@ class DeviceStore {
     this.notify();
   }
 
+  public updateBank(bankId: string, updated: Partial<Device['bank']> & { deviceUid?: string }): void {
+    const idx = this.devices.findIndex((d) => d.bankId === bankId || d.bank.id === bankId);
+    if (idx !== -1) {
+      const current = this.devices[idx];
+      this.devices[idx] = {
+        ...current,
+        deviceUid: updated.deviceUid ? updated.deviceUid.toUpperCase() : current.deviceUid,
+        bank: {
+          ...current.bank,
+          ...updated,
+        },
+      };
+      this.notify();
+    }
+  }
+
   public triggerEmergency(deviceUid: string): { success: boolean; device?: Device; message: string } {
     const idx = this.devices.findIndex((d) => d.deviceUid === deviceUid);
     if (idx === -1) {
@@ -132,6 +148,10 @@ class DeviceStore {
     return this.logs;
   }
 
+  public clearLogs(): void {
+    this.logs = [];
+  }
+
   public subscribe(listener: (devices: Device[]) => void): () => void {
     this.listeners.add(listener);
     return () => {
@@ -148,4 +168,7 @@ class DeviceStore {
 // Global declaration for Next.js hot reload persistence in dev mode
 const globalForStore = globalThis as unknown as { bemsDeviceStore?: DeviceStore };
 export const deviceStore = globalForStore.bemsDeviceStore || new DeviceStore();
+if (deviceStore) {
+  Object.setPrototypeOf(deviceStore, DeviceStore.prototype);
+}
 if (process.env.NODE_ENV !== 'production') globalForStore.bemsDeviceStore = deviceStore;

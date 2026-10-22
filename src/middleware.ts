@@ -4,8 +4,8 @@ import type { NextRequest } from 'next/server';
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1. Kecualikan rute API ESP32 (/api/v1/emergency/*) agar IoT dapat mengirim data tanpa sesi login
-  if (pathname.startsWith('/api/v1/emergency')) {
+  // 1. Kecualikan rute API (/api/v1/*) agar request API IoT dan data dashboard tidak dialihkan ke HTML login
+  if (pathname.startsWith('/api/v1/')) {
     return NextResponse.next();
   }
 

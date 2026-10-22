@@ -74,7 +74,7 @@ export async function getDevicesWithFallback(): Promise<Device[]> {
           policeSector: 'Polsek Wilayah',
           latitude: d.banks?.latitude ?? -5.429,
           longitude: d.banks?.longitude ?? 105.261,
-        } as any,
+        },
       };
     });
   } catch (err) {
@@ -234,3 +234,37 @@ export async function getLogsWithFallback(): Promise<EmergencyLog[]> {
     return deviceStore.getLogs();
   }
 }
+
+export async function clearLogsWithFallback(): Promise<{ success: boolean; message?: string }> {
+  try {
+    if (typeof (deviceStore as any).clearLogs === 'function') {
+      (deviceStore as any).clearLogs();
+    } else if ((deviceStore as any).logs) {
+      (deviceStore as any).logs = [];
+    }
+  } catch (storeErr) {
+    console.warn('DeviceStore clearLogs warning:', storeErr);
+  }
+
+  if (!isSupabaseConfigured || !supabaseAdmin) {
+    return { success: true };
+  }
+
+  try {
+    const { error } = await supabaseAdmin
+      .from('emergency_logs')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (error) {
+      console.error('Error clearing emergency_logs from Supabase:', error);
+      return { success: false, message: error.message };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const error = err as Error;
+    return { success: false, message: error.message };
+  }
+}
+

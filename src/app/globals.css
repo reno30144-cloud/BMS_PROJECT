@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #eef2f6;
+  --foreground: #102a43;
 }
 
 body {
@@ -52,8 +52,171 @@ body {
   background: #ffffff !important;
 }
 
-.custom-bank-marker {
+.custom-bank-marker,
+.leaflet-marker-icon.custom-bank-marker {
   background: transparent !important;
   border: none !important;
+  box-shadow: none !important;
+}
+
+/* Override Leaflet default link color in popup buttons */
+.leaflet-container .leaflet-popup-content a.btn-gmaps,
+.leaflet-container .leaflet-popup-content a.btn-gmaps *,
+.leaflet-container a.btn-gmaps,
+.leaflet-container a.btn-gmaps * {
+  color: #ffffff !important;
+  fill: none;
+}
+
+/* Leaflet Stacking Context Isolation: Prevents map controls and overlays from bleeding over sidebar/header */
+.leaflet-container {
+  z-index: 0 !important;
+  isolation: isolate !important;
+  position: relative !important;
+}
+
+.leaflet-pane {
+  z-index: 10 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 20 !important;
+}
+
+
+/* Fullscreen Perimeter Red Alert Border (Warna latar belakang halaman tetap stabil & konsisten) */
+@keyframes screenRedStrobe {
+  0%, 100% {
+    box-shadow: inset 0 0 40px rgba(220, 38, 38, 0.65), 0 0 20px rgba(220, 38, 38, 0.4);
+    border-color: rgba(220, 38, 38, 0.95);
+  }
+  50% {
+    box-shadow: inset 0 0 15px rgba(220, 38, 38, 0.25);
+    border-color: rgba(220, 38, 38, 0.35);
+  }
+}
+
+.animate-screen-strobe {
+  animation: screenRedStrobe 1.2s ease-in-out infinite;
+  background-color: transparent !important;
+}
+
+/* Smooth Tab Transition Animations (Efek halus saat berpindah menu/halaman) */
+@keyframes viewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-view-transition {
+  animation: viewFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Radar Sweep Animation for Command Center Intro */
+@keyframes radarSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-radar-spin {
+  animation: radarSpin 3.5s linear infinite;
+}
+
+/* Vertical Hologram Scanline */
+@keyframes scanlineMove {
+  0% {
+    top: 0%;
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+.animate-scanline {
+  position: absolute;
+  animation: scanlineMove 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* High-Tech Breathing Glow */
+@keyframes modernGlowPulse {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.08);
+  }
+}
+
+.animate-glow-pulse {
+  animation: modernGlowPulse 4s ease-in-out infinite;
+}
+
+/* Card Entrance Float-Up */
+@keyframes cardFloatUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-card-entrance {
+  animation: cardFloatUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Soft Shake for Login Error Feedback */
+@keyframes shakeSoft {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+.animate-shake-soft {
+  animation: shakeSoft 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* Security Clearance Success Hologram Pop */
+@keyframes clearancePop {
+  0% {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-clearance-pop {
+  animation: clearancePop 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 

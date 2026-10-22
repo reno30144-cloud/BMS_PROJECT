@@ -17,7 +17,7 @@ export const ResetModal: React.FC<ResetModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
-  defaultOperatorName = 'Bripka Dimas Pratama',
+  defaultOperatorName = 'Admin',
 }) => {
   const [operatorName, setOperatorName] = useState(defaultOperatorName);
   const [notes, setNotes] = useState('Unit Patroli Samapta tiba di lokasi, situasi telah dipastikan aman terkendali.');
@@ -94,7 +94,7 @@ export const ResetModal: React.FC<ResetModalProps> = ({
               value={operatorName}
               onChange={(e) => setOperatorName(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-police-700 focus:border-police-700 bg-white"
-              placeholder="Contoh: Bripka Dimas Pratama"
+              placeholder="Contoh: Admin SPKT"
             />
           </div>
 
@@ -124,7 +124,7 @@ export const ResetModal: React.FC<ResetModalProps> = ({
                   key={idx}
                   type="button"
                   onClick={() => setNotes(template)}
-                  className="w-full text-left text-[11px] p-2 rounded-lg bg-slate-50 hover:bg-police-50 border border-slate-200/80 hover:border-emerald-300 text-slate-700 hover:text-police-900 transition-all truncate"
+                  className="w-full text-left text-[11px] p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/80 hover:border-amber-400 text-slate-700 hover:text-slate-900 transition-all truncate"
                 >
                   • {template}
                 </button>
@@ -138,20 +138,20 @@ export const ResetModal: React.FC<ResetModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all"
+              className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2.5 rounded-xl bg-police-800 hover:bg-police-900 text-white text-xs font-bold flex items-center gap-2 shadow-md shadow-police-900/20 transition-all"
+              className="px-5 py-2.5 rounded-xl bg-[#102A43] hover:bg-[#163456] text-white text-xs font-bold flex items-center gap-2 shadow-md transition-all border border-amber-400/30 cursor-pointer"
             >
               {isSubmitting ? (
                 <span>Menyimpan...</span>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <CheckCircle2 className="w-4 h-4 text-amber-400" />
                   <span>Selesaikan & Reset ke Standby</span>
                 </>
               )}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Cpu, X, Send, Radio, AlertTriangle, CheckCircle, Terminal, Copy, Check, Cable } from 'lucide-react';
+import { Cpu, X, Radio, AlertTriangle, Terminal, Copy, Check, Cable } from 'lucide-react';
 import { Device } from '@/types/bems';
 
 interface IoTSimulatorModalProps {
@@ -11,6 +11,12 @@ interface IoTSimulatorModalProps {
   onTrigger: (deviceUid: string) => Promise<number>; // returns latency in ms
   onHeartbeat: (deviceUid: string) => Promise<void>;
   onEmergencyTriggered?: (device: Device) => void;
+  isUsbConnected?: boolean;
+  onConnectUsb?: () => void;
+  buttonCount?: number;
+  feedbackStatus?: 'NONE' | 'SUCCESS' | 'FAILED';
+  lastRawData?: string;
+  onResetButtonCount?: () => void;
 }
 
 export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
@@ -20,139 +26,47 @@ export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
   onTrigger,
   onHeartbeat,
   onEmergencyTriggered,
+  isUsbConnected = false,
+  onConnectUsb,
+  buttonCount = 0,
+  feedbackStatus = 'NONE',
+  lastRawData = '-',
+  onResetButtonCount,
 }) => {
   const [selectedUid, setSelectedUid] = useState<string>(devices[0]?.deviceUid || '');
   const [isLoading, setIsLoading] = useState(false);
   const [lastLatency, setLastLatency] = useState<number | null>(null);
   const [logMessage, setLogMessage] = useState<string>('Simulator siap dioperasikan.');
   const [copied, setCopied] = useState(false);
-  const [usbConnected, setUsbConnected] = useState(false);
-  const [usbConnecting, setUsbConnecting] = useState(false);
 
-  // Counting state: jika tombol diklik naik 1, jika tidak terdeteksi bernilai 0
-  const [buttonCount, setButtonCount] = useState<number>(0);
-  const [lastRawData, setLastRawData] = useState<string>('-');
-  const [feedbackStatus, setFeedbackStatus] = useState<'NONE' | 'SUCCESS' | 'FAILED'>('NONE');
+  // Perbarui default selectedUid jika devices berubah
+  React.useEffect(() => {
+    if (!selectedUid && devices.length > 0) {
+      setSelectedUid(devices[0].deviceUid);
+    }
+  }, [devices, selectedUid]);
 
   if (!isOpen) return null;
 
   const currentDevice = devices.find((d) => d.deviceUid === selectedUid) || devices[0];
 
-  const handleConnectUsb = async () => {
-    if (typeof navigator === 'undefined' || !('serial' in navigator)) {
-      alert('Browser Anda belum mendukung Web Serial API. Gunakan browser Google Chrome atau Microsoft Edge terbaru.');
-      return;
-    }
-
-    try {
-      setUsbConnecting(true);
-      setLogMessage('Membuka dialog pemilihan port USB...');
-      const port = await (navigator as any).serial.requestPort();
-      await port.open({ baudRate: 115200 });
-      setUsbConnected(true);
-      setUsbConnecting(false);
-      setLogMessage('🟢 Kabel USB ESP32 terhubung di 115200 baud! Silakan tekan tombol fisik di board ESP32 Anda sekarang...');
-
-      const textDecoder = new TextDecoderStream();
-      port.readable.pipeTo(textDecoder.writable);
-      const reader = textDecoder.readable.getReader();
-
-      let streamBuffer = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        if (value) {
-          streamBuffer += value;
-          const cleanVal = value.trim();
-          if (cleanVal.length > 0) {
-            setLastRawData(cleanVal);
-          }
-
-          // Batasi buffer agar tidak terjadi memory leak
-          if (streamBuffer.length > 500) {
-            streamBuffer = streamBuffer.slice(-200);
-          }
-
-          const upper = streamBuffer.toUpperCase();
-
-          // Cek apakah ada sinyal pemicu tombol darurat (case-insensitive & multibahasa)
-          if (
-            upper.includes('PANIC') ||
-            upper.includes('TRIGGER') ||
-            upper.includes('KLIK') ||
-            upper.includes('CLICK') ||
-            upper.includes('DITEKAN') ||
-            upper.includes('TEKAN') ||
-            upper.includes('PRESS') ||
-            upper.includes('BUTTON') ||
-            upper.includes('EMERGENCY') ||
-            upper.includes('BAHAYA') ||
-            upper.includes('ALARM')
-          ) {
-            // Cek apakah ada UID spesifik di dalam payload (contoh: PANIC:ESP32-KDT-01)
-            const match = streamBuffer.match(/PANIC:([A-Za-z0-9_-]+)/i);
-            let targetUid = selectedUid;
-            if (match && match[1]) {
-              const extracted = match[1].trim();
-              const found = devices.find((d) => d.deviceUid.toLowerCase() === extracted.toLowerCase());
-              if (found) {
-                targetUid = found.deviceUid;
-                setSelectedUid(found.deviceUid);
-              }
-            }
-
-            streamBuffer = '';
-            setButtonCount((prev) => prev + 1);
-            setFeedbackStatus('SUCCESS');
-            setLogMessage('🚨 [BENAR] Sinyal tombol fisik terdeteksi via USB! Memproses alarm darurat...');
-            
-            try {
-              const finalUid = targetUid || selectedUid || devices[0]?.deviceUid || 'ESP32-KDT-01';
-              const latency = await onTrigger(finalUid);
-              setLastLatency(latency);
-              setLogMessage(`✅ [BENAR] Sinyal darurat berhasil diproses (${latency} ms)! Alarm darurat AKTIF.`);
-              
-              // Memicu POPUP MERAH langsung ke layar
-              const triggeredDev = devices.find((d) => d.deviceUid === finalUid) || currentDevice;
-              if (triggeredDev && onEmergencyTriggered) {
-                onEmergencyTriggered(triggeredDev);
-              }
-            } catch (err: any) {
-              setFeedbackStatus('FAILED');
-              setLogMessage(`❌ [SALAH/GAGAL] Gagal memproses alarm: ${err.message}`);
-            }
-          } else if (upper.includes('HEARTBEAT') || upper.includes('PING')) {
-            setLogMessage(`💓 [HEARTBEAT] Detak jantung ESP32 aktif via USB: "${cleanVal}"`);
-          }
-        }
-      }
-    } catch (err: any) {
-      console.warn('Web Serial notice:', err);
-      setUsbConnecting(false);
-      setUsbConnected(false);
-      setButtonCount(0);
-      setFeedbackStatus('FAILED');
-      setLogMessage(`❌ [SALAH] USB Serial terputus atau gagal: ${err.message}`);
-    }
-  };
-
   const handleSimulateTrigger = async () => {
     if (!selectedUid) return;
     setIsLoading(true);
-    setButtonCount((prev) => prev + 1);
-    setFeedbackStatus('SUCCESS');
     setLogMessage(`Mengirim payload darurat HTTP POST untuk ${selectedUid}...`);
+
+    // Langsung tutup simulator dan munculkan Popup Merah seketika
+    onClose();
+    if (currentDevice && onEmergencyTriggered) {
+      onEmergencyTriggered(currentDevice);
+    }
+
     try {
       const latencyMs = await onTrigger(selectedUid);
       setLastLatency(latencyMs);
       setLogMessage(`✅ [BENAR] Sinyal darurat tersampaikan dalam ${latencyMs} ms! (Target < 2000 ms: LULUS)`);
-      if (currentDevice && onEmergencyTriggered) {
-        onEmergencyTriggered(currentDevice);
-      }
     } catch (err: unknown) {
       const e = err as Error;
-      setFeedbackStatus('FAILED');
       setLogMessage(`❌ [SALAH] Gagal: ${e.message}`);
     } finally {
       setIsLoading(false);
@@ -177,7 +91,7 @@ export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
   const curlExample = `curl -X POST http://localhost:3000/api/v1/emergency/trigger \\
   -H "Content-Type: application/json" \\
   -H "X-Device-Token: b3m5-p0lr35t4-53cr3t-t0k3n" \\
-  -d '{"device_uid": "${selectedUid || 'ESP32C3-BDL-001'}"}'`;
+  -d '{"device_uid": "${selectedUid || 'ESPC32-B'}"}'`;
 
   const copyCurl = () => {
     navigator.clipboard.writeText(curlExample);
@@ -189,14 +103,14 @@ export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="bg-police-950 text-white p-6 flex items-center justify-between border-b border-police-900">
+        <div className="bg-[#102A43] text-white p-6 flex items-center justify-between border-b border-[#0D2338]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-police-800 border border-emerald-500/40 flex items-center justify-center">
-              <Cpu className="w-5 h-5 text-emerald-400" />
+            <div className="w-10 h-10 rounded-xl bg-white/10 border border-amber-400/40 flex items-center justify-center text-amber-400">
+              <Cpu className="w-5 h-5 text-amber-400" />
             </div>
             <div>
               <h3 className="text-base font-bold text-white">Simulator Modul Perangkat IoT ESP32-C3</h3>
-              <p className="text-xs text-slate-300">Uji fungsional transmisi sinyal dan latensi penerimaan</p>
+              <p className="text-xs text-blue-200/80">Uji fungsional transmisi sinyal dan latensi penerimaan</p>
             </div>
           </div>
           <button
@@ -230,20 +144,26 @@ export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
           {/* Hardware USB Connect Section */}
           <div className="bg-gradient-to-r from-slate-50 to-police-50/50 p-4 rounded-2xl border-2 border-dashed border-police-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${
-                usbConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'
-              }`}>
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                  isUsbConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'
+                }`}
+              >
                 <Cable className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h4 className="text-xs font-bold text-slate-900">
-                    {usbConnected ? 'Kabel USB ESP32 Terhubung' : 'Gunakan Tombol Fisik (Kabel USB COM8)'}
+                    {isUsbConnected ? 'Kabel USB ESP32 Terhubung' : 'Gunakan Tombol Fisik (Kabel USB COM8)'}
                   </h4>
-                  <span className={`w-2 h-2 rounded-full ${usbConnected ? 'bg-emerald-500 animate-ping-slow' : 'bg-slate-300'}`}></span>
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      isUsbConnected ? 'bg-emerald-500 animate-ping-slow' : 'bg-slate-300'
+                    }`}
+                  ></span>
                 </div>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  {usbConnected
+                  {isUsbConnected
                     ? 'Tersambung di COM8! Tekan tombol fisik di board ESP32 Anda sekarang.'
                     : 'Sambungkan browser langsung ke kabel USB tanpa perlu Wi-Fi atau hotspot.'}
                 </p>
@@ -252,16 +172,15 @@ export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
 
             <button
               type="button"
-              onClick={handleConnectUsb}
-              disabled={usbConnecting}
+              onClick={onConnectUsb}
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 shadow-xs flex items-center gap-2 justify-center ${
-                usbConnected
+                isUsbConnected
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                   : 'bg-police-900 hover:bg-police-950 text-white'
               }`}
             >
               <Cable className="w-4 h-4" />
-              <span>{usbConnecting ? 'Menghubungkan...' : usbConnected ? '🟢 Terhubung (COM8)' : 'Sambungkan USB'}</span>
+              <span>{isUsbConnected ? '🟢 Terhubung (COM8)' : 'Sambungkan USB'}</span>
             </button>
           </div>
 
@@ -273,9 +192,11 @@ export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
                   Penghitung Klik Tombol Fisik:
                 </span>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className={`text-2xl font-black font-mono tracking-tight ${
-                    buttonCount > 0 ? 'text-emerald-400' : 'text-slate-500'
-                  }`}>
+                  <span
+                    className={`text-2xl font-black font-mono tracking-tight ${
+                      buttonCount > 0 ? 'text-emerald-400' : 'text-slate-500'
+                    }`}
+                  >
                     {buttonCount}
                   </span>
                   <span className="text-xs text-slate-400">kali ditekan</span>
@@ -315,14 +236,10 @@ export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
                 </span>
               </div>
 
-              {buttonCount > 0 && (
+              {buttonCount > 0 && onResetButtonCount && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setButtonCount(0);
-                    setFeedbackStatus('NONE');
-                    setLastRawData('-');
-                  }}
+                  onClick={onResetButtonCount}
                   className="text-[11px] text-slate-400 hover:text-white underline underline-offset-2 transition-colors"
                 >
                   Reset ke 0
@@ -330,37 +247,6 @@ export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
               )}
             </div>
           </div>
-
-          {/* Banner Popup Merah saat tombol terdeteksi */}
-          {feedbackStatus === 'SUCCESS' && (
-            <div className="bg-gradient-to-r from-red-600 to-rose-600 text-white p-3.5 rounded-2xl shadow-lg shadow-red-600/30 border border-red-400 flex items-center justify-between gap-3 animate-pulse">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-white text-red-600 flex items-center justify-center font-bold shrink-0">
-                  <AlertTriangle className="w-5 h-5 animate-bounce" />
-                </div>
-                <div>
-                  <h5 className="text-xs font-black uppercase tracking-wider">
-                    🚨 POPUP MERAH DARURAT DIPICU!
-                  </h5>
-                  <p className="text-[11px] text-red-100">
-                    Sinyal darurat aktif untuk {currentDevice?.bank.name || selectedUid}.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  if (onEmergencyTriggered && currentDevice) {
-                    onEmergencyTriggered(currentDevice);
-                  }
-                }}
-                className="px-3 py-1.5 rounded-xl bg-white text-red-700 hover:bg-red-50 text-xs font-black shrink-0 shadow-xs transition-all hover:scale-105"
-              >
-                Buka Layar Merah
-              </button>
-            </div>
-          )}
 
           {/* Action Simulation Buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -381,13 +267,13 @@ export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
             <button
               onClick={handleSimulateHeartbeat}
               disabled={isLoading}
-              className="bg-police-800 hover:bg-police-900 text-white p-4 rounded-2xl flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-police-900/20 font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="bg-[#102A43] hover:bg-[#163456] border border-amber-400/30 text-white p-4 rounded-2xl flex flex-col items-center justify-center gap-1.5 shadow-lg font-bold transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               <div className="flex items-center gap-2 text-sm">
-                <Radio className="w-5 h-5 text-emerald-400" />
+                <Radio className="w-5 h-5 text-amber-400" />
                 <span>Kirim Ping Detak Jantung</span>
               </div>
-              <span className="text-[11px] font-normal text-emerald-200">
+              <span className="text-[11px] font-normal text-blue-200">
                 Kirim Heartbeat Berkala 5 Menit
               </span>
             </button>

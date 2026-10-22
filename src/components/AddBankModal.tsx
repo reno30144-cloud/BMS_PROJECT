@@ -14,7 +14,6 @@ import {
   Loader2,
   Radio,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 
 interface AddBankModalProps {
   isOpen: boolean;
@@ -98,60 +97,17 @@ export const AddBankModal: React.FC<AddBankModalProps> = ({
         throw new Error('Koordinat Latitude dan Longitude harus berupa angka yang valid.');
       }
 
-      let bankId: string | null = null;
+      // 2. Operasi pendaftaran terpadu ke backend API (/api/v1/devices)
+      // Server menangani insert ke Supabase (via supabaseAdmin berotoritas penuh) & in-memory store
+      const res = await fetch('/api/v1/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
 
-      // 2. Operasi INSERT Berurutan ke Supabase
-      if (supabase) {
-        // Operasi 1: INSERT ke tabel `banks`
-        const { data: bankData, error: bankError } = await supabase
-          .from('banks')
-          .insert({
-            name: form.name.trim(),
-            branch_name: form.branch.trim(),
-            code: form.code.trim().toUpperCase(),
-            address: form.address.trim(),
-            emergency_contact: form.phone.trim(),
-            latitude: lat,
-            longitude: lng,
-          })
-          .select('id')
-          .single();
-
-        if (bankError) {
-          throw new Error(`Gagal menyimpan data bank ke Supabase: ${bankError.message}`);
-        }
-
-        if (!bankData || !bankData.id) {
-          throw new Error('Gagal mendapatkan UUID bank dari Supabase.');
-        }
-
-        bankId = bankData.id;
-
-        // Operasi 2: INSERT ke tabel `devices` (terhubung via bank_id)
-        const dummyAuthToken = `bems_${Math.random().toString(36).substring(2, 12)}_${Date.now()}`;
-        const { error: deviceError } = await supabase
-          .from('devices')
-          .insert({
-            bank_id: bankId,
-            device_uid: form.deviceUid.trim().toUpperCase(),
-            auth_token: dummyAuthToken,
-            status: 'OFFLINE',
-          });
-
-        if (deviceError) {
-          throw new Error(`Gagal mendaftarkan perangkat IoT ke Supabase: ${deviceError.message}`);
-        }
-      }
-
-      // Sinkronisasi pendukung ke API backend lokal
-      try {
-        await fetch('/api/v1/devices', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
-      } catch (syncErr) {
-        console.warn('Sync API background warning:', syncErr);
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) {
+        throw new Error(result.message || 'Gagal mendaftarkan bank mitra ke server.');
       }
 
       // 3. Notifikasi Berhasil & Penutupan Otomatis
@@ -174,25 +130,25 @@ export const AddBankModal: React.FC<AddBankModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200 my-8">
-        {/* Header Modal - Hijau Gelap Kepolisian */}
-        <div className="bg-police-950 text-white p-6 flex items-center justify-between border-b border-police-900">
+        {/* Header Modal - Navy & Warm Amber */}
+        <div className="bg-[#102A43] text-white p-6 flex items-center justify-between border-b border-[#0D2338]">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-police-700 flex items-center justify-center shadow-lg shadow-emerald-950/40 border border-emerald-400/30">
-              <Building2 className="w-6 h-6 text-white" />
+            <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center shadow-lg border border-amber-400/40 text-amber-400">
+              <Building2 className="w-6 h-6 text-amber-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold tracking-widest uppercase text-emerald-400">
+                <span className="text-xs font-bold tracking-widest uppercase text-amber-400">
                   REGISTRASI OBJEK VITAL
                 </span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-400/30 font-mono">
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded border border-amber-400/30 font-mono font-bold">
                   BEMS IOT
                 </span>
               </div>
               <h3 className="text-base font-bold text-white tracking-tight">
                 Tambah Bank Mitra & Perangkat IoT
               </h3>
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-blue-200/80">
                 Hubungkan unit cabang perbankan dengan modul alarm ESP32-C3
               </p>
             </div>
@@ -465,16 +421,16 @@ export const AddBankModal: React.FC<AddBankModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-police-900 hover:bg-police-800 text-white text-xs font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50 active:scale-95 border border-emerald-500/30"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#102A43] hover:bg-[#163456] text-white text-xs font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50 active:scale-95 border border-amber-400/30 cursor-pointer"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
                   <span>Menyimpan ke Supabase...</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <CheckCircle2 className="w-4 h-4 text-amber-400" />
                   <span>Daftarkan Bank & Perangkat</span>
                 </>
               )}

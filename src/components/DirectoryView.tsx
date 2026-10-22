@@ -1,15 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, Building2, MapPin, Phone, UserCheck, Shield } from 'lucide-react';
+import { Search, Building2, MapPin, Phone, UserCheck, Shield, Edit3 } from 'lucide-react';
 import { Device } from '@/types/bems';
+import { EditBankModal } from '@/components/EditBankModal';
 
 interface DirectoryViewProps {
   devices: Device[];
+  onRefresh?: () => void;
 }
 
-export const DirectoryView: React.FC<DirectoryViewProps> = ({ devices }) => {
+export const DirectoryView: React.FC<DirectoryViewProps> = ({ devices, onRefresh }) => {
   const [search, setSearch] = useState('');
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
 
   const filtered = devices.filter(
     (d) =>
@@ -87,10 +90,29 @@ export const DirectoryView: React.FC<DirectoryViewProps> = ({ devices }) => {
                 <Shield className="w-3.5 h-3.5" />
                 {d.bank.policeSector}
               </span>
+              <button
+                type="button"
+                onClick={() => setEditingDevice(d)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 transition-colors cursor-pointer"
+                title={`Edit data ${d.bank.name}`}
+              >
+                <Edit3 className="w-3 h-3 text-blue-600" />
+                <span>Edit</span>
+              </button>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Modal Edit Bank */}
+      <EditBankModal
+        device={editingDevice}
+        isOpen={Boolean(editingDevice)}
+        onClose={() => setEditingDevice(null)}
+        onSuccess={() => {
+          if (onRefresh) onRefresh();
+        }}
+      />
     </div>
   );
 };

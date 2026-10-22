@@ -11,7 +11,6 @@ import {
   ShieldAlert,
   CheckCircle2,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { Device } from '@/types/bems';
 
 interface DeleteConfirmModalProps {
@@ -45,43 +44,17 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
     setSuccessMsg(null);
 
     try {
-      // 1. Operasi DELETE di Supabase
-      // Bersihkan log terkait terlebih dahulu agar foreign key constraint tidak terkendala
-      if (supabase && bankId) {
-        try {
-          const { data: devData } = await supabase
-            .from('devices')
-            .select('id')
-            .eq('bank_id', bankId);
-          if (devData && devData.length > 0) {
-            const devIds = devData.map((d: any) => d.id);
-            await supabase.from('emergency_logs').delete().in('device_id', devIds);
-          }
-        } catch (logErr) {
-          console.warn('Catatan foreign key log Supabase:', logErr);
-        }
+      // 1. Eksekusi penghapusan terpadu di server backend (Supabase cascading delete + in-memory store)
+      const res = await fetch(`/api/v1/devices?bankId=${encodeURIComponent(bankId)}`, {
+        method: 'DELETE',
+      });
 
-        // Jalankan perintah delete di Supabase
-        const { error } = await supabase
-          .from('banks')
-          .delete()
-          .eq('id', bankId);
-
-        if (error) {
-          console.warn('Peringatan delete Supabase:', error.message);
-        }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Gagal menghapus data dari server.');
       }
 
-      // 2. Sinkronisasi ke backend API route (menghapus di database server & in-memory store)
-      try {
-        await fetch(`/api/v1/devices?bankId=${encodeURIComponent(bankId)}`, {
-          method: 'DELETE',
-        });
-      } catch (apiErr) {
-        console.warn('Sync delete API route warning:', apiErr);
-      }
-
-      // 3. Panggil fungsi onRefresh / onSuccess seketika agar UI (Grid & Peta) langsung memuat ulang data terbaru
+      // 2. Panggil fungsi onRefresh / onSuccess seketika agar UI (Grid & Peta) langsung memuat ulang data terbaru
       if (onRefresh) {
         await onRefresh();
       }
@@ -89,7 +62,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
         await onSuccess();
       }
 
-      // 4. Notifikasi Berhasil & Penutupan Modal
+      // 3. Notifikasi Berhasil & Penutupan Modal
       setSuccessMsg(`Data ${bankName} (${branchName}) berhasil dihapus.`);
       setTimeout(() => {
         onClose();
