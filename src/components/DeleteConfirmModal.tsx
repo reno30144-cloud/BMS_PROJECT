@@ -147,9 +147,9 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
             <div className="flex items-center justify-between text-slate-600">
               <span className="flex items-center gap-1.5 text-slate-500">
                 <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                Kode Bank:
+                Kantor Cabang:
               </span>
-              <span className="font-mono font-bold text-slate-800">{device.bank?.code}</span>
+              <span className="font-semibold text-slate-800">{branchName}</span>
             </div>
             <div className="flex items-center justify-between text-slate-600 border-t border-slate-200/60 pt-1.5">
               <span className="flex items-center gap-1.5 text-slate-500">

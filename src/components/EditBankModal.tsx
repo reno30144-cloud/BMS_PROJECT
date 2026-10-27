@@ -7,7 +7,6 @@ import {
   MapPin,
   Cpu,
   Phone,
-  Hash,
   Compass,
   AlertCircle,
   CheckCircle2,
@@ -15,6 +14,7 @@ import {
   Edit3,
   UserCheck,
   Shield,
+  ExternalLink,
 } from 'lucide-react';
 import { Device } from '@/types/bems';
 
@@ -90,6 +90,26 @@ export const EditBankModal: React.FC<EditBankModalProps> = ({
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleCoordinateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (value.includes(',') || value.includes(' ')) {
+      const parts = value.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const lat = parseFloat(parts[0]);
+        const lng = parseFloat(parts[1]);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          setForm((prev) => ({
+            ...prev,
+            latitude: parts[0],
+            longitude: parts[1],
+          }));
+          return;
+        }
+      }
+    }
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
   const handleApplyPreset = (lat: string, lng: string) => {
     setForm((prev) => ({
       ...prev,
@@ -108,7 +128,6 @@ export const EditBankModal: React.FC<EditBankModalProps> = ({
       if (
         !form.name.trim() ||
         !form.branch.trim() ||
-        !form.code.trim() ||
         !form.address.trim() ||
         !form.phone.trim() ||
         !form.deviceUid.trim()
@@ -245,41 +264,21 @@ export const EditBankModal: React.FC<EditBankModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Kode Bank / Sandi <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Hash className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  name="code"
-                  required
-                  value={form.code}
-                  onChange={handleChange}
-                  placeholder="Contoh: MANDIRI TKK"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-police-700 font-mono uppercase"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                UID Hardware Panic Button <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Cpu className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  name="deviceUid"
-                  required
-                  value={form.deviceUid}
-                  onChange={handleChange}
-                  placeholder="Contoh: ESPC32-B"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-police-700 font-mono uppercase font-bold text-police-700"
-                />
-              </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              UID Hardware Panic Button <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Cpu className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                name="deviceUid"
+                required
+                value={form.deviceUid}
+                onChange={handleChange}
+                placeholder="Contoh: ESPC32-B"
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-police-700 font-mono uppercase font-bold text-police-700"
+              />
             </div>
           </div>
 
@@ -374,8 +373,8 @@ export const EditBankModal: React.FC<EditBankModalProps> = ({
                   type="text"
                   name="latitude"
                   value={form.latitude}
-                  onChange={handleChange}
-                  placeholder="-5.424000"
+                  onChange={handleCoordinateChange}
+                  placeholder="-5.421690"
                   className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-mono bg-white focus:ring-1 focus:ring-police-700"
                 />
               </div>
@@ -385,11 +384,34 @@ export const EditBankModal: React.FC<EditBankModalProps> = ({
                   type="text"
                   name="longitude"
                   value={form.longitude}
-                  onChange={handleChange}
-                  placeholder="105.259000"
+                  onChange={handleCoordinateChange}
+                  placeholder="105.253298"
                   className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-mono bg-white focus:ring-1 focus:ring-police-700"
                 />
               </div>
+            </div>
+
+            {/* Panduan Akurasi Presisi */}
+            <div className="bg-sky-50 border border-sky-200/80 rounded-xl p-2.5 text-xs text-sky-950 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-police-800 text-[10px] flex items-center gap-1">
+                  <span>🎯</span> Cara Pin 100% Presisi di Google Maps:
+                </span>
+                <a
+                  href={`https://www.google.com/maps/search/${encodeURIComponent(
+                    form.name ? `${form.name} ${form.branch}` : 'Bandar Lampung'
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-police-700 hover:text-police-900 font-bold text-[10px] bg-white px-2 py-0.5 rounded border border-sky-200 hover:border-police-400 transition-colors shadow-2xs"
+                >
+                  <ExternalLink className="w-2.5 h-2.5" />
+                  Buka Maps
+                </a>
+              </div>
+              <p className="text-[10px] text-slate-600 leading-relaxed">
+                <strong>Klik kanan</strong> tepat di atap gedung bank &gt; klik angka koordinat untuk copy (contoh: <code className="bg-white text-police-700 px-1 py-0.2 rounded font-mono font-bold">-5.42169, 105.25330</code>), lalu <strong>paste langsung</strong> ke kolom Latitude di atas.
+              </p>
             </div>
 
             {/* Quick Presets */}

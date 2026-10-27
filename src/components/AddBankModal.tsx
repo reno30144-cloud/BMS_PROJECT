@@ -7,12 +7,12 @@ import {
   MapPin,
   Cpu,
   Phone,
-  Hash,
   Compass,
   AlertCircle,
   CheckCircle2,
   Loader2,
   Radio,
+  ExternalLink,
 } from 'lucide-react';
 
 interface AddBankModalProps {
@@ -24,7 +24,6 @@ interface AddBankModalProps {
 interface FormState {
   name: string;
   branch: string;
-  code: string;
   address: string;
   phone: string;
   latitude: string;
@@ -35,7 +34,6 @@ interface FormState {
 const initialForm: FormState = {
   name: '',
   branch: '',
-  code: '',
   address: '',
   phone: '',
   latitude: '-5.429000',
@@ -62,6 +60,27 @@ export const AddBankModal: React.FC<AddBankModalProps> = ({
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Penanganan input & paste cerdas koordinat (otomatis memecah format "lat, lng" dari Google Maps)
+  const handleCoordinateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (value.includes(',') || value.includes(' ')) {
+      const parts = value.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const lat = parseFloat(parts[0]);
+        const lng = parseFloat(parts[1]);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          setForm((prev) => ({
+            ...prev,
+            latitude: parts[0],
+            longitude: parts[1],
+          }));
+          return;
+        }
+      }
+    }
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
   // Preset koordinat populer di Bandar Lampung
   const handleApplyPreset = (lat: string, lng: string) => {
     setForm((prev) => ({
@@ -82,7 +101,6 @@ export const AddBankModal: React.FC<AddBankModalProps> = ({
       if (
         !form.name.trim() ||
         !form.branch.trim() ||
-        !form.code.trim() ||
         !form.address.trim() ||
         !form.phone.trim() ||
         !form.deviceUid.trim()
@@ -226,41 +244,21 @@ export const AddBankModal: React.FC<AddBankModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Kode Bank <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Hash className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    name="code"
-                    value={form.code}
-                    onChange={handleChange}
-                    placeholder="Contoh: B-004 / MANDIRI-KDT"
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono uppercase text-slate-800 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-police-700 transition-all shadow-xs"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Kontak Darurat Cabang <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    name="phone"
-                    value={form.phone}
-                    onChange={handleChange}
-                    placeholder="Contoh: 0721-701234 / 0812-7890-1234"
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-police-700 transition-all shadow-xs"
-                    required
-                  />
-                </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Kontak Darurat Cabang <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  placeholder="Contoh: 0721-701234 / 0812-7890-1234"
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-police-700 transition-all shadow-xs"
+                  required
+                />
               </div>
             </div>
 
@@ -305,8 +303,8 @@ export const AddBankModal: React.FC<AddBankModalProps> = ({
                     type="text"
                     name="latitude"
                     value={form.latitude}
-                    onChange={handleChange}
-                    placeholder="-5.429000"
+                    onChange={handleCoordinateChange}
+                    placeholder="-5.421690"
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-police-700 transition-all shadow-xs"
                     required
                   />
@@ -323,8 +321,8 @@ export const AddBankModal: React.FC<AddBankModalProps> = ({
                     type="text"
                     name="longitude"
                     value={form.longitude}
-                    onChange={handleChange}
-                    placeholder="105.261000"
+                    onChange={handleCoordinateChange}
+                    placeholder="105.253298"
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-police-700 transition-all shadow-xs"
                     required
                   />
@@ -332,8 +330,31 @@ export const AddBankModal: React.FC<AddBankModalProps> = ({
               </div>
             </div>
 
+            {/* Panduan Akurasi Presisi & Bantuan Google Maps */}
+            <div className="bg-sky-50 border border-sky-200/80 rounded-2xl p-3 text-xs text-sky-950 space-y-1.5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold flex items-center gap-1.5 text-police-800 text-[11px]">
+                  <span>🎯</span> Cara Agar Pin 100% Tepat di Atas Gedung:
+                </span>
+                <a
+                  href={`https://www.google.com/maps/search/${encodeURIComponent(
+                    form.name ? `${form.name} ${form.branch}` : 'Bandar Lampung'
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-police-700 hover:text-police-900 font-bold text-[10px] bg-white px-2 py-0.5 rounded-lg border border-sky-200 hover:border-police-400 transition-colors shadow-2xs"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Buka Google Maps
+                </a>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Di Google Maps, <strong>klik kanan</strong> tepat di gedung bank &gt; klik angka koordinat paling atas untuk meng-copy (contoh: <code className="bg-white text-police-700 px-1 py-0.5 rounded border border-sky-200 font-mono font-bold">-5.42169, 105.25330</code>), lalu <strong>paste langsung</strong> ke kolom Latitude di atas (kedua kolom akan otomatis terisi).
+              </p>
+            </div>
+
             {/* Quick Coordinate Presets */}
-            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500 pt-1">
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500 pt-0.5">
               <span className="font-medium">Preset cepat:</span>
               <button
                 type="button"

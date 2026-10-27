@@ -51,6 +51,9 @@ export async function POST(req: Request) {
     let bankId = `bank-${Date.now()}`;
     let deviceId = `dev-${Date.now()}`;
     const cleanDeviceUid = (deviceUid || `ESP32C3-BDL-${Date.now().toString().slice(-4)}`).trim().toUpperCase();
+    const cleanBankCode = (code && typeof code === 'string' && code.trim())
+      ? code.trim().toUpperCase()
+      : `${(name || 'BNK').replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase() || 'BANK'}-${Date.now().toString().slice(-4)}`;
 
     if (isSupabaseConfigured && supabaseAdmin) {
       // 1. Insert ke tabel banks
@@ -59,7 +62,7 @@ export async function POST(req: Request) {
         .insert({
           name: name?.trim() || 'Bank Mitra',
           branch_name: branch?.trim() || 'Kantor Cabang',
-          code: (code || 'BANK').trim().toUpperCase(),
+          code: cleanBankCode,
           address: address?.trim() || 'Bandar Lampung',
           emergency_contact: phone?.trim() || '0721-110',
           latitude: lat,
@@ -101,7 +104,7 @@ export async function POST(req: Request) {
       batteryLevel: 0,
       bank: {
         id: bankId,
-        code: (code || 'BANK').trim().toUpperCase(),
+        code: cleanBankCode,
         name: name?.trim() || 'Bank Mitra',
         branchName: branch?.trim() || 'Kantor Cabang',
         address: address?.trim() || 'Bandar Lampung',
@@ -219,7 +222,7 @@ export async function PUT(req: Request) {
       const bankUpdateData: any = {};
       if (name !== undefined) bankUpdateData.name = name.trim();
       if (branch !== undefined) bankUpdateData.branch_name = branch.trim();
-      if (code !== undefined) bankUpdateData.code = code.trim().toUpperCase();
+      if (code !== undefined && code.trim() !== '') bankUpdateData.code = code.trim().toUpperCase();
       if (address !== undefined) bankUpdateData.address = address.trim();
       if (phone !== undefined) bankUpdateData.emergency_contact = phone.trim();
       if (lat !== undefined && !isNaN(lat)) bankUpdateData.latitude = lat;
@@ -256,7 +259,7 @@ export async function PUT(req: Request) {
     deviceStore.updateBank(bankId, {
       name: name !== undefined ? name.trim() : undefined,
       branchName: branch !== undefined ? branch.trim() : undefined,
-      code: code !== undefined ? code.trim().toUpperCase() : undefined,
+      code: (code !== undefined && code.trim() !== '') ? code.trim().toUpperCase() : undefined,
       address: address !== undefined ? address.trim() : undefined,
       emergencyContact: phone !== undefined ? phone.trim() : undefined,
       branchManager: branchManager !== undefined ? branchManager.trim() : undefined,

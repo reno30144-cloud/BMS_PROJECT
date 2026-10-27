@@ -78,11 +78,11 @@ const createBankIcon = (status: BankStatus) => {
   return L.divIcon({
     className: 'custom-bank-marker',
     html: `
-      <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 44px; height: 50px;">
+      <div style="position: relative; display: flex; align-items: flex-end; justify-content: center; width: 44px; height: 48px;">
         ${
           isDanger
             ? `
-            <div style="position: absolute; top: 2px; width: 46px; height: 46px; border-radius: 9999px; background-color: #ef4444; opacity: 0.85; animation: ping 0.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            <div style="position: absolute; bottom: 0px; width: 44px; height: 44px; border-radius: 9999px; background-color: #ef4444; opacity: 0.85; animation: ping 0.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
             <div style="position: absolute; top: -6px; right: -4px; z-index: 20; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 9999px; border: 1.5px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.5); animation: bounce 1s infinite;">BAHAYA</div>
             `
             : ''
@@ -104,9 +104,9 @@ const createBankIcon = (status: BankStatus) => {
         />
       </div>
     `,
-    iconSize: [44, 50],
-    iconAnchor: [22, 42],
-    popupAnchor: [0, -42],
+    iconSize: [44, 48],
+    iconAnchor: [22, 48],
+    popupAnchor: [0, -48],
   });
 };
 
