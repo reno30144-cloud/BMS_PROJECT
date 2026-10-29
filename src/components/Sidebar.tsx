@@ -6,9 +6,10 @@ import { LogoutButton } from '@/components/LogoutButton';
 import { ProfileModal } from '@/components/ProfileModal';
 
 interface SidebarProps {
-  activeTab: 'monitoring' | 'map' | 'banks' | 'history' | 'simulator';
-  setActiveTab: (tab: 'monitoring' | 'map' | 'banks' | 'history' | 'simulator') => void;
+  activeTab: 'monitoring' | 'map' | 'banks' | 'polsek' | 'history' | 'simulator';
+  setActiveTab: (tab: 'monitoring' | 'map' | 'banks' | 'polsek' | 'history' | 'simulator') => void;
   triggeredCount: number;
+  polsekCount?: number;
   operatorName?: string;
   operatorRole?: string;
   operatorEmail?: string;
@@ -21,6 +22,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   triggeredCount,
+  polsekCount = 0,
   operatorName = 'Admin',
   operatorRole = 'Piket SPKT • admin@polresta.id',
   operatorEmail = 'admin@polresta.id',
@@ -58,6 +60,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Direktori Bank Mitra',
       icon: Building2,
       badge: null,
+      isEmergency: false,
+    },
+    {
+      id: 'polsek' as const,
+      label: 'Server Polsek',
+      icon: ShieldCheck,
+      badge: polsekCount > 0 ? `${polsekCount} NODE` : null,
       isEmergency: false,
     },
     {

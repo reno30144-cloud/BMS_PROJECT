@@ -39,7 +39,7 @@ Ketika tombol ditekan:
 ### 2.1 Tujuan Strategis (Business Goals)
 1. **Memangkas Response Time (Golden Period):** Memangkas waktu transmisi laporan kejadian dari rata-rata 3 menit menjadi < 2 detik ke Command Center.
 2. **Meningkatkan Keandalan Proteksi Objek Vital:** Menjamin kesiapsiagaan seluruh unit alarm bank di wilayah hukum Bandar Lampung secara berkala (24/7).
-3. **Efisiensi Disposisi Taktis:** Memberikan kejelasan data situasional bagi perwira pengendali untuk menginstruksikan unit patroli presisi.
+3. **Efisiensi Disposisi Taktis:** Memberikan kejelasan data situasional bagi perwira pengendali untuk menginstruksikan unit patroli respons cepat.
 
 ### 2.2 Sasaran Spesifik MVP (MVP Objectives)
 * **Validasi Real-time Sub-2 Detik:** Membuktikan integrasi end-to-end antara penekanan tombol fisik ESP32-C3 hingga rendering perubahan UI di dashboard Next.js berlangsung < 2 detik.

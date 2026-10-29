@@ -345,7 +345,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   <span>Tentang Program Magang & Inovasi BEMS</span>
                 </div>
                 <p>
-                  Aplikasi ini dikembangkan sebagai bagian dari proyek pengabdian dan magang integrasi teknologi kepolisian presisi di <strong className="text-white">Polresta Bandar Lampung</strong>.
+                  Aplikasi ini dikembangkan sebagai bagian dari proyek pengabdian dan magang integrasi teknologi kepolisian di <strong className="text-white">Polresta Bandar Lampung</strong>.
                 </p>
                 <p>
                   Sistem ini menghubungkan mikrokontroler tombol darurat fisik <strong className="text-amber-300">ESP32-C3 SuperMini</strong> di berbagai kantor cabang bank mitra langsung ke layar komando SPKT secara instan via jalur ganda (Real-time Cloud WebSocket dan koneksi cadangan USB Hardware Serial).

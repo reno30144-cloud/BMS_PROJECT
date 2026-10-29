@@ -30,6 +30,8 @@ L.Icon.Default.mergeOptions({
 });
 
 import { POLRESTA_HQ_POSITION, calculateDistanceKm } from '@/lib/geo-utils';
+import { PoliceStation } from '@/types/bems';
+import { INITIAL_POLSEKS } from '@/lib/polsek-store';
 export { POLRESTA_HQ_POSITION, calculateDistanceKm };
 
 // ============================================================================
@@ -130,6 +132,52 @@ const createPoliceHqIcon = () => {
   });
 };
 
+// Marker Khusus: Kantor Polsek (Simpul Server Wilayah)
+const createPolsekIcon = () => {
+  return L.divIcon({
+    className: 'custom-bank-marker',
+    html: `
+      <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 42px; height: 42px;">
+        <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background-color: #0284c7; opacity: 0.25; animation: ping 3s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+        <div style="
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+          border: 2px solid #38bdf8;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 10px rgba(56, 189, 248, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #bae6fd;
+        ">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <span style="
+          position: absolute;
+          bottom: -7px;
+          background: #0369a1;
+          color: white;
+          font-size: 8px;
+          font-weight: 800;
+          font-family: monospace;
+          padding: 1px 4px;
+          border-radius: 4px;
+          border: 1px solid #38bdf8;
+          white-space: nowrap;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        ">POLSEK</span>
+      </div>
+    `,
+    iconSize: [42, 42],
+    iconAnchor: [21, 38],
+    popupAnchor: [0, -38],
+  });
+};
+
 // ============================================================================
 // Map Controller: Otomatis Menyesuaikan Rute & Kamera ke Titik Bahaya
 // ============================================================================
@@ -157,12 +205,14 @@ const AutoRouteController: React.FC<{
 
 interface MapDashboardProps {
   banks?: BankMarkerData[];
+  policeStations?: PoliceStation[];
   height?: string;
   className?: string;
 }
 
 export const MapDashboard: React.FC<MapDashboardProps> = ({
   banks = DUMMY_BANKS,
+  policeStations = INITIAL_POLSEKS,
   height = '580px',
   className = '',
 }) => {
@@ -178,6 +228,7 @@ export const MapDashboard: React.FC<MapDashboardProps> = ({
   const [showTraffic, setShowTraffic] = useState<boolean>(false);
   const [showKecamatan, setShowKecamatan] = useState<boolean>(true);
   const [showRadarRadius, setShowRadarRadius] = useState<boolean>(false);
+  const [showPolsek, setShowPolsek] = useState<boolean>(true);
 
   // Bank yang menjadi fokus rute navigasi (Otomatis prioritaskan yang berstatus 'Bahaya')
   const [selectedRouteBank, setSelectedRouteBank] = useState<BankMarkerData | null>(null);
@@ -602,6 +653,28 @@ export const MapDashboard: React.FC<MapDashboardProps> = ({
               {showRadarRadius ? 'Radius (ON)' : 'Radius'}
             </span>
           </button>
+
+          {/* 6. Simpul Server Kantor Polsek */}
+          <button
+            type="button"
+            onClick={() => setShowPolsek((prev) => !prev)}
+            className={`flex flex-col items-center gap-1 p-1 rounded-xl transition-all cursor-pointer shrink-0 ${
+              showPolsek
+                ? 'bg-sky-50 text-sky-800 ring-2 ring-sky-500 font-bold'
+                : 'text-slate-700 hover:bg-slate-100'
+            }`}
+            title="Tampilkan / Sembunyikan Simpul Server Kantor Polsek"
+          >
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-xs relative flex items-center justify-center bg-slate-900 border border-sky-400/40 text-sky-300">
+              <ShieldCheck className="w-5 h-5 text-sky-400" />
+              {showPolsek && (
+                <div className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white" />
+              )}
+            </div>
+            <span className="text-[10px] sm:text-[11px] font-semibold leading-tight">
+              {showPolsek ? 'Polsek (ON)' : 'Polsek'}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -765,6 +838,58 @@ export const MapDashboard: React.FC<MapDashboardProps> = ({
             />
           </>
         )}
+
+        {/* MARKER KANTOR POLSEK (SIMPUL SERVER WILAYAH) */}
+        {showPolsek &&
+          policeStations.map((polsek) => (
+            <Marker
+              key={polsek.id}
+              position={[polsek.latitude, polsek.longitude]}
+              icon={createPolsekIcon()}
+            >
+              <Popup className="bems-popup" minWidth={250}>
+                <div className="p-1 font-sans text-slate-800">
+                  <div className="flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold mb-2 bg-[#102A43] text-emerald-400 border border-emerald-500/30">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>SIMPUL SERVER POLSEK</span>
+                    </div>
+                    <span className="text-[9px] font-mono bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-400/30 font-bold">
+                      SERVER
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                    {polsek.name}
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                    {polsek.address}
+                  </p>
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                    <span className="font-mono text-slate-400 text-[10px]">
+                      {polsek.latitude.toFixed(4)}, {polsek.longitude.toFixed(4)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      SERVER AKTIF
+                    </span>
+                  </div>
+                  <div className="mt-2.5">
+                    <a
+                      href={`https://www.google.com/maps/search/${encodeURIComponent(
+                        `${polsek.name} ${polsek.address}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 font-semibold text-xs rounded-xl border border-sky-200 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Buka di Google Maps
+                    </a>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
 
         {/* Marker Bank dengan Status Aman & Bahaya */}
         {banks.map((bank) => {

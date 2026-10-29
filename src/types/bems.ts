@@ -35,3 +35,14 @@ export interface EmergencyLog {
   operatorName?: string | null;
   resolutionNotes?: string | null;
 }
+
+export interface PoliceStation {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  code?: string;
+  isServerNode?: boolean;
+  createdAt?: string;
+}

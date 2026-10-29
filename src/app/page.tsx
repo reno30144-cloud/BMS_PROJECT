@@ -8,11 +8,13 @@ import { BankCard } from '@/components/BankCard';
 import { ResetModal } from '@/components/ResetModal';
 import { IoTSimulatorModal } from '@/components/IoTSimulatorModal';
 import { DirectoryView } from '@/components/DirectoryView';
+import { PolsekView } from '@/components/PolsekView';
 import { IncidentHistoryView } from '@/components/IncidentHistoryView';
-import { Device, EmergencyLog } from '@/types/bems';
+import { Device, EmergencyLog, PoliceStation } from '@/types/bems';
 import { alarmAudio } from '@/lib/audio-alert';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { INITIAL_DEVICES } from '@/lib/demo-data';
+import { INITIAL_POLSEKS } from '@/lib/polsek-store';
 import { AlertTriangle, Filter, Search, Radio, LayoutGrid, Map as MapIcon, PlusCircle, Cable, Navigation, PhoneCall, ExternalLink, Car, Volume2, ShieldCheck, Menu, Building2, History } from 'lucide-react';
 import { MapWrapper } from '@/components/MapWrapper';
 import { AddBankModal } from '@/components/AddBankModal';
@@ -20,9 +22,10 @@ import { EmergencyAlertModal } from '@/components/EmergencyAlertModal';
 import { POLRESTA_HQ_POSITION, calculateDistanceKm } from '@/lib/geo-utils';
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<'monitoring' | 'map' | 'banks' | 'history' | 'simulator'>('monitoring');
+  const [activeTab, setActiveTab] = useState<'monitoring' | 'map' | 'banks' | 'polsek' | 'history' | 'simulator'>('monitoring');
   const [devices, setDevices] = useState<Device[]>(INITIAL_DEVICES);
   const [logs, setLogs] = useState<EmergencyLog[]>([]);
+  const [policeStations, setPoliceStations] = useState<PoliceStation[]>(INITIAL_POLSEKS);
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'STANDBY' | 'TRIGGERED' | 'OFFLINE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -151,6 +154,21 @@ export default function DashboardPage() {
         if (json.data?.logs) {
           setLogs(json.data.logs);
         }
+      }
+
+      // Ambil daftar simpul server kantor polsek dari API
+      try {
+        const polsekRes = await fetch(`/api/v1/polsek?_t=${Date.now()}`, {
+          cache: 'no-store',
+        });
+        if (polsekRes.ok) {
+          const polsekJson = await polsekRes.json();
+          if (polsekJson.data && Array.isArray(polsekJson.data)) {
+            setPoliceStations(polsekJson.data);
+          }
+        }
+      } catch {
+        // Fallback tetap menggunakan data polsek yang sudah ada
       }
     } catch {
       // Fallback gracefully to existing state in case of network glitch
@@ -560,6 +578,7 @@ export default function DashboardPage() {
           }
         }}
         triggeredCount={triggeredCount}
+        polsekCount={policeStations.length}
         operatorName={operatorUser.name}
         operatorRole={`Piket SPKT • ${operatorUser.email}`}
         operatorEmail={operatorUser.email}
@@ -807,14 +826,14 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                    {/* Tombol Tambah Bank Mitra */}
+                    {/* Tombol Tambah Bank Mitra / Polsek */}
                     <button
                       onClick={() => setIsAddBankOpen(true)}
-                      className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-police-900 hover:bg-police-850 text-white text-xs font-semibold transition-all shadow-xs hover:shadow-md active:scale-95 whitespace-nowrap border border-emerald-500/30"
-                      title="Tambah Bank Mitra Baru & Perangkat IoT"
+                      className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-police-900 hover:bg-police-850 text-white text-xs font-semibold transition-all shadow-xs hover:shadow-md active:scale-95 whitespace-nowrap border border-emerald-500/30 cursor-pointer"
+                      title="Tambah Bank Mitra Baru atau Kantor Polsek (Server)"
                     >
                       <PlusCircle className="w-4 h-4 text-emerald-400" />
-                      <span>Tambah Bank Mitra</span>
+                      <span>Tambah Bank / Polsek</span>
                     </button>
 
                     <div className="relative flex-1 sm:w-60">
@@ -920,15 +939,31 @@ export default function DashboardPage() {
                         ? new Date(device.lastHeartbeatAt).toLocaleTimeString('id-ID') + ' WIB'
                         : 'Belum ada data'
                     }))} 
+                    policeStations={policeStations}
                   />
                 </div>
               </div>
             )}
 
-            {/* Tab: Direktori Bank */}
+            {/* Tab: Direktori Bank Mitra */}
             {activeTab === 'banks' && (
               <div key="banks" className="animate-view-transition">
-                <DirectoryView devices={devices} onRefresh={fetchStatus} />
+                <DirectoryView
+                  devices={devices}
+                  policeStations={policeStations}
+                  onRefresh={fetchStatus}
+                />
+              </div>
+            )}
+
+            {/* Tab: Server Polsek */}
+            {activeTab === 'polsek' && (
+              <div key="polsek" className="animate-view-transition">
+                <PolsekView
+                  policeStations={policeStations}
+                  onRefresh={fetchStatus}
+                  onOpenAddPolsek={() => setIsAddBankOpen(true)}
+                />
               </div>
             )}
 
@@ -986,6 +1021,20 @@ export default function DashboardPage() {
           >
             <Building2 className={`w-5 h-5 mb-0.5 ${activeTab === 'banks' ? 'text-amber-400' : ''}`} />
             <span className="text-[11px] tracking-tight">Bank</span>
+          </button>
+
+          {/* Server Polsek */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('polsek')}
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl flex-1 max-w-[84px] min-h-[52px] transition-all cursor-pointer active:scale-95 ${
+              activeTab === 'polsek'
+                ? 'text-white font-bold bg-white/15 border border-white/25 shadow-xs'
+                : 'text-blue-100/70 hover:text-white'
+            }`}
+          >
+            <ShieldCheck className={`w-5 h-5 mb-0.5 ${activeTab === 'polsek' ? 'text-amber-400' : ''}`} />
+            <span className="text-[11px] tracking-tight">Polsek</span>
           </button>
 
           {/* Log Insiden & Riwayat */}

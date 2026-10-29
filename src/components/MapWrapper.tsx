@@ -4,9 +4,11 @@ import React from 'react';
 import dynamic from 'next/dynamic';
 import { Radio } from 'lucide-react';
 import type { BankMarkerData } from './MapDashboard';
+import { PoliceStation } from '@/types/bems';
 
 interface MapWrapperProps {
   banks?: BankMarkerData[];
+  policeStations?: PoliceStation[];
   height?: string;
   className?: string;
 }
@@ -36,7 +38,7 @@ const DynamicMapDashboard = dynamic(
           Memuat Peta Pemantauan BEMS...
         </h3>
         <p className="text-xs text-slate-400 max-w-sm mt-1.5 leading-relaxed">
-          Menginisialisasi modul GIS, batas wilayah kecamatan Bandar Lampung, dan telemetri lokasi perbankan.
+          Menginisialisasi modul GIS, batas wilayah kecamatan Bandar Lampung, dan telemetri lokasi perbankan & polsek.
         </p>
 
         {/* Skeleton Shimmer Pill */}
@@ -49,8 +51,20 @@ const DynamicMapDashboard = dynamic(
   }
 );
 
-export const MapWrapper: React.FC<MapWrapperProps> = (props) => {
-  return <DynamicMapDashboard {...props} />;
+export const MapWrapper: React.FC<MapWrapperProps> = ({
+  banks,
+  policeStations,
+  height,
+  className,
+}) => {
+  return (
+    <DynamicMapDashboard
+      banks={banks}
+      policeStations={policeStations}
+      height={height}
+      className={className}
+    />
+  );
 };
 
 export default MapWrapper;

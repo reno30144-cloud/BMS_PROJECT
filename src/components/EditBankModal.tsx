@@ -391,11 +391,11 @@ export const EditBankModal: React.FC<EditBankModalProps> = ({
               </div>
             </div>
 
-            {/* Panduan Akurasi Presisi */}
+            {/* Panduan Akurasi */}
             <div className="bg-sky-50 border border-sky-200/80 rounded-xl p-2.5 text-xs text-sky-950 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-police-800 text-[10px] flex items-center gap-1">
-                  <span>🎯</span> Cara Pin 100% Presisi di Google Maps:
+                  <span>🎯</span> Cara Pin 100% Tepat di Google Maps:
                 </span>
                 <a
                   href={`https://www.google.com/maps/search/${encodeURIComponent(
