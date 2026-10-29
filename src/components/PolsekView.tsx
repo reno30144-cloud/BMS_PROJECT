@@ -90,7 +90,25 @@ export const PolsekView: React.FC<PolsekViewProps> = ({
       </div>
 
       {/* Grid Kartu Kantor Polsek */}
-      {filtered.length === 0 ? (
+      {policeStations.length === 0 ? (
+        <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-xs">
+          <div className="w-14 h-14 rounded-2xl bg-[#102A43] text-amber-400 border border-amber-400/30 flex items-center justify-center mx-auto mb-3 shadow-md">
+            <ShieldCheck className="w-7 h-7 text-amber-400" />
+          </div>
+          <h4 className="text-base font-bold text-slate-900">Belum Ada Server Polsek Terdaftar</h4>
+          <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 mb-6 leading-relaxed">
+            Data server Polsek saat ini kosong. Silakan tambahkan kantor polsek baru secara manual untuk memetakan simpul server wilayah hukum Polresta Bandar Lampung.
+          </p>
+          <button
+            type="button"
+            onClick={onOpenAddPolsek}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-police-900 hover:bg-police-850 text-white text-xs font-semibold shadow-xs hover:shadow-md transition-all border border-amber-400/30 cursor-pointer active:scale-95"
+          >
+            <PlusCircle className="w-4 h-4 text-amber-400" />
+            <span>Tambah Server Polsek Sekarang</span>
+          </button>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-xs">
           <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
           <p className="text-sm font-semibold text-slate-700">Tidak ada kantor polsek yang cocok</p>

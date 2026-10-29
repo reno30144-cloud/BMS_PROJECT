@@ -18,7 +18,7 @@ export async function GET() {
           .select('*')
           .eq('branch_name', 'SERVER_POLSEK');
 
-        if (!error && dbPolseks && dbPolseks.length > 0) {
+        if (!error && dbPolseks) {
           const mapped: PoliceStation[] = dbPolseks.map((b: any) => ({
             id: b.id,
             name: b.name,
@@ -30,12 +30,7 @@ export async function GET() {
             createdAt: b.created_at,
           }));
 
-          // Gabungkan data Supabase dengan Polsek default (hindari duplikasi berdasarkan nama)
-          const nameMap = new Map<string, PoliceStation>();
-          INITIAL_POLSEKS.forEach((p) => nameMap.set(p.name.toLowerCase().trim(), p));
-          mapped.forEach((p) => nameMap.set(p.name.toLowerCase().trim(), p));
-
-          polseks = Array.from(nameMap.values());
+          polseks = mapped;
           polsekStore.setPolseks(polseks);
         }
       } catch (dbErr) {
