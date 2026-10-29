@@ -29,6 +29,7 @@ interface BankCardProps {
   onSimulateTrigger: (deviceUid: string) => void;
   onDelete?: (device: Device) => void;
   onRefresh?: () => void;
+  canDelete?: boolean;
 }
 
 export const BankCard: React.FC<BankCardProps> = ({
@@ -37,6 +38,7 @@ export const BankCard: React.FC<BankCardProps> = ({
   onSimulateTrigger,
   onDelete,
   onRefresh,
+  canDelete = false,
 }) => {
   const { bank, status, lastHeartbeatAt, lastTriggeredAt, deviceUid, rssi, batteryLevel } = device;
 
@@ -165,24 +167,26 @@ export const BankCard: React.FC<BankCardProps> = ({
                 <Edit3 className="w-4 h-4" />
               </button>
 
-              {/* Tombol Hapus (Trash2) */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsDeleteModalOpen(true);
-                  if (onDelete) onDelete(device);
-                }}
-                className="p-2 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center active:scale-95"
-                title={`Hapus ${bank.name} ${bank.branchName}`}
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {/* Tombol Hapus (Trash2): Khusus Admin Command Center (Polsek Tidak Bisa Hapus) */}
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsDeleteModalOpen(true);
+                    if (onDelete) onDelete(device);
+                  }}
+                  className="p-2 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center active:scale-95"
+                  title={`Hapus ${bank.name} ${bank.branchName}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Baris Identitas Bank: Logo & Nama Bank Bebas Terpotong */}
+        {/* Baris Identitas Bank: Logo & Nama Bank */}
         <div className="flex items-center gap-3.5 mb-4">
           <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 p-1 flex items-center justify-center shrink-0 shadow-xs">
             <img
@@ -329,14 +333,16 @@ export const BankCard: React.FC<BankCardProps> = ({
         }}
       />
 
-      {/* Modal Konfirmasi Hapus */}
-      <DeleteConfirmModal
-        device={device}
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onRefresh={onRefresh}
-        onSuccess={onRefresh}
-      />
+      {/* Modal Konfirmasi Hapus (Hanya untuk Admin) */}
+      {canDelete && (
+        <DeleteConfirmModal
+          device={device}
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onRefresh={onRefresh}
+          onSuccess={onRefresh}
+        />
+      )}
     </div>
   );
 };

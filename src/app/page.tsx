@@ -10,7 +10,8 @@ import { IoTSimulatorModal } from '@/components/IoTSimulatorModal';
 import { DirectoryView } from '@/components/DirectoryView';
 import { PolsekView } from '@/components/PolsekView';
 import { IncidentHistoryView } from '@/components/IncidentHistoryView';
-import { Device, EmergencyLog, PoliceStation } from '@/types/bems';
+import { Device, EmergencyLog, PoliceStation, UserProfile } from '@/types/bems';
+import { resolveUserProfile } from '@/lib/rbac';
 import { alarmAudio } from '@/lib/audio-alert';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { INITIAL_DEVICES } from '@/lib/demo-data';
@@ -55,24 +56,24 @@ export default function DashboardPage() {
   const serialReaderRef = React.useRef<any>(null);
   const readableStreamClosedRef = React.useRef<Promise<void> | null>(null);
 
-  // Operator Auth State (Tugas 4: Ambil Data Operator via supabase.auth.getUser())
-  const [operatorUser, setOperatorUser] = useState<{
-    email: string;
-    name: string;
-  }>({
+  // Operator Auth State & RBAC (Role: 'admin' | 'polsek')
+  const [operatorUser, setOperatorUser] = useState<UserProfile>({
     email: 'admin@polresta.id',
-    name: 'Admin',
+    name: 'Admin Command Center SPKT',
+    role: 'admin',
   });
 
-  // Ambil email dan data user dari Supabase Auth & LocalStorage
+  // Ambil email, data user, dan hak akses RBAC dari Supabase Auth & LocalStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('bems_operator_name');
-      if (saved && !saved.toLowerCase().includes('bripka') && !saved.toLowerCase().includes('dimas')) {
-        setOperatorUser((prev) => ({ ...prev, name: saved }));
-      } else if (saved && (saved.toLowerCase().includes('bripka') || saved.toLowerCase().includes('dimas'))) {
-        localStorage.removeItem('bems_operator_name');
-        setOperatorUser((prev) => ({ ...prev, name: 'Admin' }));
+      const savedName = localStorage.getItem('bems_operator_name');
+      const savedRole = localStorage.getItem('bems_operator_role');
+      if (savedName && !savedName.toLowerCase().includes('bripka') && !savedName.toLowerCase().includes('dimas')) {
+        setOperatorUser((prev) => ({
+          ...prev,
+          name: savedName,
+          role: savedRole === 'polsek' ? 'polsek' : 'admin',
+        }));
       }
     }
 
@@ -81,24 +82,27 @@ export default function DashboardPage() {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (user && !error) {
-          const email = user.email || 'admin@polresta.id';
-          const saved = typeof window !== 'undefined' ? localStorage.getItem('bems_operator_name') : null;
-          const cleanSaved = saved && !saved.toLowerCase().includes('bripka') ? saved : null;
-          const fullName =
-            cleanSaved ||
-            user.user_metadata?.full_name ||
-            user.user_metadata?.name ||
-            (email.includes('@')
-              ? email
-                  .split('@')[0]
-                  .replace(/[._]/g, ' ')
-                  .replace(/\b\w/g, (c) => c.toUpperCase())
-              : 'Admin');
+          // 1. Coba ambil profile dari tabel public.profiles di database
+          let profileRecord = null;
+          try {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .maybeSingle();
+            profileRecord = prof;
+          } catch (e) {
+            // Abaikan jika tabel profiles belum dibuat
+          }
 
-          setOperatorUser({
-            email,
-            name: fullName,
-          });
+          // 2. Selesaikan role dan informasi profile secara tangguh
+          const resolved = resolveUserProfile(user, profileRecord);
+          setOperatorUser(resolved);
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('bems_operator_name', resolved.name);
+            localStorage.setItem('bems_operator_role', resolved.role);
+          }
         }
       } catch (err) {
         console.error('Error fetching operator session:', err);
@@ -509,8 +513,12 @@ export default function DashboardPage() {
     await fetchStatus();
   };
 
-  // Membersihkan seluruh jejak audit log insiden
+  // Membersihkan seluruh jejak audit log insiden (Khusus Super Admin SPKT)
   const handleClearLogs = async () => {
+    if (operatorUser.role !== 'admin') {
+      alert('Akses Ditolak: Role Polsek tidak memiliki hak akses menghapus jejak audit log insiden.');
+      return;
+    }
     try {
       const res = await fetch('/api/v1/logs', {
         method: 'DELETE',
@@ -580,8 +588,13 @@ export default function DashboardPage() {
         triggeredCount={triggeredCount}
         polsekCount={policeStations.length}
         operatorName={operatorUser.name}
-        operatorRole={`Piket SPKT • ${operatorUser.email}`}
+        operatorRole={
+          operatorUser.role === 'admin'
+            ? `Piket SPKT • ${operatorUser.email}`
+            : `Piket Wilayah • ${operatorUser.polsekName || operatorUser.email}`
+        }
         operatorEmail={operatorUser.email}
+        userRole={operatorUser.role}
         onUpdateName={(newName) => {
           setOperatorUser((prev) => ({ ...prev, name: newName }));
         }}
@@ -866,6 +879,7 @@ export default function DashboardPage() {
                         onReset={(d) => setResetTargetDevice(d)}
                         onSimulateTrigger={(uid) => handleTriggerEmergency(uid)}
                         onRefresh={fetchStatus}
+                        canDelete={operatorUser.role === 'admin'}
                       />
                     ))}
                   </div>
@@ -963,6 +977,7 @@ export default function DashboardPage() {
                   policeStations={policeStations}
                   onRefresh={fetchStatus}
                   onOpenAddPolsek={() => setIsAddBankOpen(true)}
+                  userRole={operatorUser.role}
                 />
               </div>
             )}
@@ -970,7 +985,11 @@ export default function DashboardPage() {
             {/* Tab: Riwayat Log */}
             {activeTab === 'history' && (
               <div key="history" className="animate-view-transition">
-                <IncidentHistoryView logs={logs} onClearLogs={handleClearLogs} />
+                <IncidentHistoryView
+                  logs={logs}
+                  onClearLogs={operatorUser.role === 'admin' ? handleClearLogs : undefined}
+                  canDelete={operatorUser.role === 'admin'}
+                />
               </div>
             )}
           </div>

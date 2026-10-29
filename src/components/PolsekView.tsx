@@ -12,7 +12,7 @@ import {
   Trash2,
   PlusCircle,
 } from 'lucide-react';
-import { PoliceStation } from '@/types/bems';
+import { PoliceStation, UserRole } from '@/types/bems';
 import { EditPolsekModal } from '@/components/EditPolsekModal';
 import { DeletePolsekModal } from '@/components/DeletePolsekModal';
 
@@ -20,16 +20,20 @@ interface PolsekViewProps {
   policeStations: PoliceStation[];
   onRefresh: () => void;
   onOpenAddPolsek: () => void;
+  userRole?: UserRole;
 }
 
 export const PolsekView: React.FC<PolsekViewProps> = ({
   policeStations,
   onRefresh,
   onOpenAddPolsek,
+  userRole = 'admin',
 }) => {
   const [search, setSearch] = useState('');
   const [editingPolsek, setEditingPolsek] = useState<PoliceStation | null>(null);
   const [deletingPolsek, setDeletingPolsek] = useState<PoliceStation | null>(null);
+
+  const canDelete = userRole === 'admin';
 
   const filtered = policeStations.filter(
     (p) =>
@@ -61,6 +65,7 @@ export const PolsekView: React.FC<PolsekViewProps> = ({
 
         {/* Tombol Tambah & Kolom Pencarian */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          {/* Tombol Tambah hanya untuk Admin atau bisa diakses */}
           <button
             type="button"
             onClick={onOpenAddPolsek}
@@ -141,7 +146,7 @@ export const PolsekView: React.FC<PolsekViewProps> = ({
                 </div>
               </div>
 
-              {/* Baris Tombol Aksi Lengkap: Maps, Edit, Hapus */}
+              {/* Baris Tombol Aksi: Maps, Edit, dan Hapus (Khusus Admin) */}
               <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
                 <a
                   href={`https://www.google.com/maps/search/${encodeURIComponent(
@@ -168,16 +173,18 @@ export const PolsekView: React.FC<PolsekViewProps> = ({
                     <span>Edit</span>
                   </button>
 
-                  {/* Tombol Hapus */}
-                  <button
-                    type="button"
-                    onClick={() => setDeletingPolsek(polsek)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 transition-colors cursor-pointer"
-                    title={`Hapus server ${polsek.name}`}
-                  >
-                    <Trash2 className="w-3 h-3 text-red-600" />
-                    <span>Hapus</span>
-                  </button>
+                  {/* Tombol Hapus: HANYA TAMPIL UNTUK ADMIN (Polsek TIDAK BISA delete apapun) */}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => setDeletingPolsek(polsek)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 transition-colors cursor-pointer"
+                      title={`Hapus server ${polsek.name}`}
+                    >
+                      <Trash2 className="w-3 h-3 text-red-600" />
+                      <span>Hapus</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -193,16 +200,17 @@ export const PolsekView: React.FC<PolsekViewProps> = ({
         onSuccess={onRefresh}
       />
 
-      {/* Modal Hapus Polsek */}
-      <DeletePolsekModal
-        polsek={deletingPolsek}
-        isOpen={Boolean(deletingPolsek)}
-        onClose={() => setDeletingPolsek(null)}
-        onSuccess={onRefresh}
-      />
+      {/* Modal Hapus Polsek (Hanya bisa dipicu Admin) */}
+      {canDelete && (
+        <DeletePolsekModal
+          polsek={deletingPolsek}
+          isOpen={Boolean(deletingPolsek)}
+          onClose={() => setDeletingPolsek(null)}
+          onSuccess={onRefresh}
+        />
+      )}
     </div>
   );
 };
 
 export default PolsekView;
-

@@ -46,3 +46,14 @@ export interface PoliceStation {
   isServerNode?: boolean;
   createdAt?: string;
 }
+
+export type UserRole = 'admin' | 'polsek';
+
+export interface UserProfile {
+  id?: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  polsekId?: string;
+  polsekName?: string;
+}

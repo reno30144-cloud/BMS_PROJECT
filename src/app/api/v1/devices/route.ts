@@ -6,6 +6,7 @@ import { getDevicesWithFallback, getLogsWithFallback } from '@/lib/supabase-serv
 import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import { deviceStore } from '@/lib/device-store';
 import { Device } from '@/types/bems';
+import { verifyAdminRequest } from '@/lib/rbac';
 
 export async function GET() {
   try {
@@ -134,6 +135,14 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const authCheck = await verifyAdminRequest(req);
+    if (!authCheck.allowed) {
+      return NextResponse.json(
+        { success: false, message: authCheck.message },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const bankId = searchParams.get('bankId');
 

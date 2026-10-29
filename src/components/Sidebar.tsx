@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Radio, Building2, History, Cpu, ShieldCheck, ChevronRight, Map, X } from 'lucide-react';
 import { LogoutButton } from '@/components/LogoutButton';
 import { ProfileModal } from '@/components/ProfileModal';
+import { UserRole } from '@/types/bems';
 
 interface SidebarProps {
   activeTab: 'monitoring' | 'map' | 'banks' | 'polsek' | 'history' | 'simulator';
@@ -13,6 +14,7 @@ interface SidebarProps {
   operatorName?: string;
   operatorRole?: string;
   operatorEmail?: string;
+  userRole?: UserRole;
   onUpdateName?: (newName: string) => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
@@ -26,6 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   operatorName = 'Admin',
   operatorRole = 'Piket SPKT • admin@polresta.id',
   operatorEmail = 'admin@polresta.id',
+  userRole = 'admin',
   onUpdateName,
   isMobileOpen = false,
   onCloseMobile,
@@ -89,11 +92,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className="flex flex-col h-full justify-between bg-[#102A43] text-white select-none">
       {/* Bagian Atas: Header Brand & Navigasi (Bisa scroll jika layar pendek) */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {/* Header Identitas Institusi Polresta (Desain Bersih, Tajam & Modern Tanpa Efek Cahaya Bulat) */}
+        {/* Header Identitas Institusi Polresta */}
         <div className="p-5 border-b border-white/10 bg-[#102A43]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3.5 min-w-0">
-              {/* Logo Siger Polresta (Bersih & Tajam) */}
+              {/* Logo Siger Polresta */}
               <img
                 src="/logo.png"
                 alt="Logo Siger Polresta Bandar Lampung"
@@ -130,14 +133,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
 
-          {/* Status Kesiagaan 24/7 */}
+          {/* Status Kesiagaan 24/7 & Posko */}
           <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-2 text-blue-100">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
               </span>
-              <span className="font-semibold text-blue-100/90 tracking-wide">Command Center SPKT</span>
+              <span className="font-semibold text-blue-100/90 tracking-wide">
+                {userRole === 'admin' ? 'Command Center SPKT' : 'Node Polsek Wilayah'}
+              </span>
             </span>
             <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 border border-amber-400/30 px-2 py-0.5 rounded-full font-mono tracking-wider shadow-xs">
               24/7 SIAGA
@@ -145,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Menu Navigasi Utama (Gaya Navy & Warm Amber Executive) */}
+        {/* Menu Navigasi Utama */}
         <nav className="p-4 space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -205,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Bagian Bawah: Profil Operator & Status Konektivitas (Gaya Card Executive Mockup) */}
+      {/* Bagian Bawah: Profil Operator & Status Konektivitas */}
       <div className="shrink-0 p-4 border-t border-white/10 bg-[#102A43]/95 backdrop-blur-xs">
         {/* Tombol Profil Operator */}
         <button
@@ -215,7 +220,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           title="Klik untuk melihat Profil & Tentang Sistem"
         >
           <div className="flex items-center gap-3 min-w-0">
-            {/* Avatar Lingkaran Putih (mirip John Don pada mockup) */}
+            {/* Avatar Lingkaran Putih */}
             <div className="w-10 h-10 rounded-full bg-white text-[#102A43] flex items-center justify-center font-extrabold text-xs shrink-0 shadow-md border-2 border-amber-400/80 group-hover:scale-105 transition-transform">
               {initials}
             </div>
@@ -227,8 +232,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/30 px-1.5 py-0.2 rounded-md">
-                  PIKET
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                  userRole === 'admin'
+                    ? 'text-amber-300 bg-amber-500/20 border border-amber-400/30'
+                    : 'text-sky-300 bg-sky-500/20 border border-sky-400/30'
+                }`}>
+                  {userRole === 'admin' ? 'SUPER ADMIN' : 'POLSEK'}
                 </span>
                 <p className="text-[10px] text-blue-200/80 truncate">{operatorRole.replace('Piket SPKT • ', '')}</p>
               </div>
@@ -257,12 +266,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Desktop Sidebar (Permanent di Layar Lebar: h-full, w-72, solid background & no collapse) */}
+      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-72 h-full bg-[#102A43] text-white flex-col border-r border-[#0D2338] shrink-0 select-none shadow-2xl z-30 relative overflow-hidden">
         {renderContent(false)}
       </aside>
 
-      {/* Mobile Sidebar Drawer Overlay (Di Layar HP / Tablet) */}
+      {/* Mobile Sidebar Drawer Overlay */}
       {isMobileOpen && (
         <div className="fixed inset-0 z-[100] flex lg:hidden">
           {/* Backdrop Blur Gelap */}
@@ -286,6 +295,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         operatorName={operatorName}
         operatorRole={operatorRole}
         operatorEmail={operatorEmail}
+        userRole={userRole}
         onUpdateName={onUpdateName}
       />
     </>

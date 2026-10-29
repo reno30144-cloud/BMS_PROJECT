@@ -3,6 +3,7 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getLogsWithFallback, clearLogsWithFallback } from '@/lib/supabase-service';
+import { verifyAdminRequest } from '@/lib/rbac';
 
 export async function GET() {
   try {
@@ -25,8 +26,16 @@ export async function GET() {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   try {
+    const authCheck = await verifyAdminRequest(req);
+    if (!authCheck.allowed) {
+      return NextResponse.json(
+        { success: false, message: authCheck.message },
+        { status: 403 }
+      );
+    }
+
     const result = await clearLogsWithFallback();
     if (!result.success) {
       return NextResponse.json(

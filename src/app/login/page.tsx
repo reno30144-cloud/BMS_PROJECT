@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ShieldCheck, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Radio, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Radio, CheckCircle2, Shield, UserCheck } from 'lucide-react';
 import { supabase, setAuthCookie, isSupabaseConfigured } from '@/lib/supabase';
+import { resolveUserProfile, ALL_SEED_ACCOUNTS } from '@/lib/rbac';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -69,18 +70,14 @@ export default function LoginPage() {
       setIsAuthorized(true);
       setIsLoading(false);
 
-      // Simpan nama operator jika tersedia
+      // Simpan nama operator dan role RBAC di localStorage
       if (typeof window !== 'undefined') {
-        const opName =
-          data.user?.user_metadata?.full_name ||
-          data.user?.user_metadata?.name ||
-          (email.includes('@')
-            ? email
-                .split('@')[0]
-                .replace(/[._]/g, ' ')
-                .replace(/\b\w/g, (c) => c.toUpperCase())
-            : 'Operator SPKT');
-        localStorage.setItem('bems_operator_name', opName);
+        const resolved = resolveUserProfile(data.user);
+        localStorage.setItem('bems_operator_name', resolved.name);
+        localStorage.setItem('bems_operator_role', resolved.role);
+        if (resolved.polsekId) {
+          localStorage.setItem('bems_operator_polsek_id', resolved.polsekId);
+        }
       }
 
       // Jalankan animasi pengisian otorisasi (900ms)
@@ -298,6 +295,43 @@ export default function LoginPage() {
                         <Eye className="w-4 h-4" />
                       )}
                     </button>
+                  </div>
+                </div>
+
+                {/* Pilihan Cepat Akun Seeding Database (RBAC: Admin vs Polsek) */}
+                <div className="pt-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-amber-400" />
+                      Pilih Akun Cepat (Uji Coba RBAC):
+                    </span>
+                    <span className="text-[10px] text-amber-300 font-mono">Default: Polresta123!</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ALL_SEED_ACCOUNTS.map((acc) => {
+                      const isSelected = email.toLowerCase() === acc.email.toLowerCase();
+                      const isAdmin = acc.role === 'admin';
+                      return (
+                        <button
+                          key={acc.email}
+                          type="button"
+                          onClick={() => {
+                            setEmail(acc.email);
+                            setPassword('Polresta123!');
+                          }}
+                          className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-500 text-slate-950 font-bold border-amber-300 shadow-xs scale-105'
+                              : isAdmin
+                              ? 'bg-amber-500/15 text-amber-300 border-amber-400/30 hover:bg-amber-500/25'
+                              : 'bg-white/10 text-blue-200 border-white/10 hover:bg-white/15'
+                          }`}
+                          title={`Login sebagai ${acc.fullName} (${acc.role.toUpperCase()})`}
+                        >
+                          {isAdmin ? '⭐ Admin SPKT' : acc.name.replace('Piket ', '')}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 

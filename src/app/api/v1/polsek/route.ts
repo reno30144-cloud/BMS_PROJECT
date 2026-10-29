@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import { polsekStore, INITIAL_POLSEKS } from '@/lib/polsek-store';
 import { PoliceStation } from '@/types/bems';
+import { verifyAdminRequest } from '@/lib/rbac';
 
 export async function GET() {
   try {
@@ -230,6 +231,14 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const authCheck = await verifyAdminRequest(req);
+    if (!authCheck.allowed) {
+      return NextResponse.json(
+        { success: false, message: authCheck.message },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 

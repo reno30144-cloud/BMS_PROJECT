@@ -7,9 +7,14 @@ import { EmergencyLog } from '@/types/bems';
 interface IncidentHistoryViewProps {
   logs: EmergencyLog[];
   onClearLogs?: () => Promise<void> | void;
+  canDelete?: boolean;
 }
 
-export const IncidentHistoryView: React.FC<IncidentHistoryViewProps> = ({ logs, onClearLogs }) => {
+export const IncidentHistoryView: React.FC<IncidentHistoryViewProps> = ({
+  logs,
+  onClearLogs,
+  canDelete = false,
+}) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
@@ -26,7 +31,7 @@ export const IncidentHistoryView: React.FC<IncidentHistoryViewProps> = ({ logs, 
   };
 
   const handleConfirmClear = async () => {
-    if (!onClearLogs) return;
+    if (!onClearLogs || !canDelete) return;
     setIsClearing(true);
     try {
       await onClearLogs();
@@ -54,7 +59,8 @@ export const IncidentHistoryView: React.FC<IncidentHistoryViewProps> = ({ logs, 
             {logs.length} Total Catatan
           </div>
 
-          {logs.length > 0 && onClearLogs && (
+          {/* Tombol Hapus Log: Hanya untuk Admin Command Center (Polsek Tidak Bisa Hapus Apapun) */}
+          {logs.length > 0 && onClearLogs && canDelete && (
             <button
               type="button"
               onClick={() => setIsConfirmOpen(true)}
@@ -80,152 +86,111 @@ export const IncidentHistoryView: React.FC<IncidentHistoryViewProps> = ({ logs, 
             </p>
           </div>
         ) : (
-          <>
-            {/* Desktop Table View (Layar Komputer / Tablet Lebar) */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                  <tr>
-                    <th className="px-6 py-4">Status & Bank</th>
-                    <th className="px-6 py-4">Waktu Pemicu (Trigger)</th>
-                    <th className="px-6 py-4">Waktu Penyelesaian</th>
-                    <th className="px-6 py-4">Petugas SPKT</th>
-                    <th className="px-6 py-4">Catatan Tindakan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {logs.map((log) => (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="py-3.5 px-4 sm:px-6">Status / Insiden</th>
+                  <th className="py-3.5 px-4 sm:px-6">Objek Vital & Lokasi</th>
+                  <th className="py-3.5 px-4 sm:px-6">Waktu Kejadian</th>
+                  <th className="py-3.5 px-4 sm:px-6">Penyelesaian</th>
+                  <th className="py-3.5 px-4 sm:px-6">Petugas Piket</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {logs.map((log) => {
+                  const isResolved = Boolean(log.resolvedAt);
+
+                  return (
                     <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          {log.resolvedAt ? (
-                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                          ) : (
-                            <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
-                          )}
-                          <div>
-                            <strong className="text-slate-900 block">{log.bankName}</strong>
-                            <span className="text-[11px] text-slate-500">{log.branchName}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-mono font-medium text-red-600">
-                        {formatTime(log.triggeredAt)}
-                      </td>
-                      <td className="px-6 py-4 font-mono">
-                        {log.resolvedAt ? (
-                          <span className="text-emerald-700 flex items-center gap-1 font-medium">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            {formatTime(log.resolvedAt)}
+                      <td className="py-4 px-4 sm:px-6">
+                        {isResolved ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            SELESAI DITANGANI
                           </span>
                         ) : (
-                          <span className="text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded border border-red-200">
-                            PROSES
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 animate-pulse">
+                            <ShieldAlert className="w-3.5 h-3.5" />
+                            SEDANG BERLANGSUNG
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-semibold text-slate-800">
-                        {log.operatorName || '-'}
+
+                      <td className="py-4 px-4 sm:px-6">
+                        <div className="font-bold text-slate-900 text-sm">{log.bankName}</div>
+                        <div className="text-police-700 font-medium">{log.branchName}</div>
                       </td>
-                      <td className="px-6 py-4 text-slate-600 max-w-xs truncate" title={log.resolutionNotes || ''}>
-                        {log.resolutionNotes || '-'}
+
+                      <td className="py-4 px-4 sm:px-6 text-slate-600 font-mono">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{formatTime(log.triggeredAt)}</span>
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-4 sm:px-6 text-slate-600">
+                        {log.resolvedAt ? (
+                          <div>
+                            <div className="font-mono text-xs text-slate-800">
+                              {formatTime(log.resolvedAt)}
+                            </div>
+                            {log.resolutionNotes && (
+                              <div className="text-[11px] text-slate-500 italic mt-0.5">
+                                "{log.resolutionNotes}"
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">Belum direset</span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-4 sm:px-6">
+                        <div className="font-semibold text-slate-800">
+                          {log.operatorName || 'Petugas SPKT'}
+                        </div>
+                        <div className="text-[10px] text-slate-400">Command Center</div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Card List View (Khusus Layar HP / Browser Ponsel) */}
-            <div className="md:hidden divide-y divide-slate-100">
-              {logs.map((log) => (
-                <div key={log.id} className="p-4 space-y-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                          log.resolvedAt ? 'bg-emerald-500' : 'bg-red-600 animate-ping'
-                        }`}
-                      />
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900 leading-tight">{log.bankName}</h4>
-                        <p className="text-xs text-slate-500 font-medium">{log.branchName}</p>
-                      </div>
-                    </div>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        log.resolvedAt
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-red-50 text-red-700 border border-red-200 animate-pulse'
-                      }`}
-                    >
-                      {log.resolvedAt ? 'SELESAI' : 'PROSES'}
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-50 rounded-xl p-3 space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Pemicu:</span>
-                      <span className="font-mono font-bold text-red-600">{formatTime(log.triggeredAt)}</span>
-                    </div>
-                    {log.resolvedAt && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Penyelesaian:</span>
-                        <span className="font-mono font-semibold text-emerald-700">{formatTime(log.resolvedAt)}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Petugas:</span>
-                      <span className="font-semibold text-slate-800">{log.operatorName || '-'}</span>
-                    </div>
-                    {log.resolutionNotes && (
-                      <div className="pt-1.5 border-t border-slate-200/60 text-slate-600">
-                        <span className="font-semibold text-slate-500 block text-[11px]">Tindakan:</span>
-                        <p className="mt-0.5 leading-relaxed">{log.resolutionNotes}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* Modal Dialog Konfirmasi Pembersihan Log */}
-      {isConfirmOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => !isClearing && setIsConfirmOpen(false)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3.5 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
+      {/* Modal Konfirmasi Bersihkan Semua Log */}
+      {isConfirmOpen && canDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5" />
               </div>
-              <div>
-                <h4 className="text-base font-bold text-slate-900">
-                  Bersihkan Semua Log Insiden?
-                </h4>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Tindakan ini akan mengosongkan seluruh riwayat audit.
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsConfirmOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200 mb-5">
-              Sebanyak <strong className="text-slate-900">{logs.length} catatan log insiden</strong> akan dihapus secara permanen dari basis data sistem BEMS Polresta. Data yang telah dihapus tidak dapat dipulihkan.
+            <h4 className="text-base font-bold text-slate-900 mb-1">
+              Bersihkan Seluruh Riwayat Log Insiden?
+            </h4>
+            <p className="text-xs text-slate-500 leading-relaxed mb-6">
+              Tindakan ini akan menghapus <strong>{logs.length} catatan log insiden</strong> secara permanen dari basis data sistem. Riwayat yang sudah dihapus tidak dapat dipulihkan kembali.
             </p>
 
-            <div className="flex items-center justify-end gap-2.5">
+            <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setIsConfirmOpen(false)}
                 disabled={isClearing}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
               >
                 Batal
               </button>

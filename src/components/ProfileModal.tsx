@@ -24,6 +24,7 @@ import {
   Award,
 } from 'lucide-react';
 import { LogoutButton } from '@/components/LogoutButton';
+import { UserRole } from '@/types/bems';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ interface ProfileModalProps {
   operatorName: string;
   operatorRole?: string;
   operatorEmail?: string;
+  userRole?: UserRole;
   onUpdateName?: (newName: string) => void;
 }
 
@@ -40,6 +42,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   operatorName,
   operatorRole = 'Operator Piket SPKT',
   operatorEmail = 'admin@polresta.id',
+  userRole = 'admin',
   onUpdateName,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'about'>('profile');
@@ -115,8 +118,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <div>
                 <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
                   <span>Profil & Tentang Sistem</span>
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-400/30 font-mono font-bold">
-                    SPKT SIAGA
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono font-bold ${
+                    userRole === 'admin'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-400/30'
+                      : 'bg-sky-500/20 text-sky-300 border-sky-400/30'
+                  }`}>
+                    {userRole === 'admin' ? 'SPKT POLRESTA' : 'NODE POLSEK'}
                   </span>
                 </h3>
                 <p className="text-xs text-blue-200/80">
@@ -230,7 +237,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
                     <span className="inline-flex items-center gap-1.5 text-[11px] bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-full border border-amber-400/40 font-semibold self-center sm:self-auto">
                       <BadgeCheck className="w-3.5 h-3.5 text-amber-400" />
-                      Petugas Terverifikasi
+                      {userRole === 'admin' ? 'Super Admin Command Center' : 'Operator Polsek Wilayah'}
                     </span>
                   </div>
 
@@ -266,36 +273,39 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </span>
                   <div className="flex items-center gap-2 text-xs font-semibold text-white">
                     <Radio className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>Command Center SPKT</span>
+                    <span>{userRole === 'admin' ? 'Command Center SPKT' : 'Kantor Polsek Sektor'}</span>
                   </div>
                   <span className="text-[11px] text-blue-200/70 block mt-0.5 ml-6">
-                    Piket Regu A (Operasi 24 Jam)
+                    {userRole === 'admin' ? 'Piket Ruang Pantau Utama 24/7' : 'Posko Monitoring Wilayah'}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white/5 border border-white/10">
                   <span className="text-[10px] text-blue-200/80 font-bold uppercase tracking-wider block mb-1">
-                    Lokasi Posko
-                  </span>
-                  <div className="flex items-center gap-2 text-xs font-semibold text-white">
-                    <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>Ruang Komando SPKT</span>
-                  </div>
-                  <span className="text-[11px] text-blue-200/70 block mt-0.5 ml-6">
-                    Jl. MT Haryono No. 15, Bandar Lampung
-                  </span>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-[10px] text-blue-200/80 font-bold uppercase tracking-wider block mb-1">
-                    Hak Akses Sistem
+                    Hak Akses Sistem (RBAC)
                   </span>
                   <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
                     <Award className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>Level Administrator SPKT</span>
+                    <span>{userRole === 'admin' ? 'Level Super Admin SPKT' : 'Level Operator Polsek'}</span>
                   </div>
                   <span className="text-[11px] text-blue-200/70 block mt-0.5 ml-6">
-                    Dispatch Armada & Reset Darurat
+                    {userRole === 'admin' ? 'Akses Penuh: Tambah, Edit & Hapus' : 'Akses Pantau: Tidak Bisa Hapus Apapun'}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10">
+                  <span className="text-[10px] text-blue-200/80 font-bold uppercase tracking-wider block mb-1">
+                    Otoritas Hapus Data
+                  </span>
+                  <div className="flex items-center gap-2 text-xs font-semibold">
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                      userRole === 'admin' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30' : 'bg-red-500/20 text-red-300 border border-red-400/30'
+                    }`}>
+                      {userRole === 'admin' ? '✓ DIIZINKAN (ADMIN)' : '✕ DITOLAK (POLSEK)'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-blue-200/70 block mt-0.5">
+                    {userRole === 'admin' ? 'Dapat mengelola dan menghapus entitas' : 'Khusus polsek: tampilan proteksi tanpa tombol delete'}
                   </span>
                 </div>
               </div>
