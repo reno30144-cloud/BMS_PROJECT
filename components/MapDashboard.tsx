@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { MapContainer, TileLayer, GeoJSON, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -227,7 +227,6 @@ export const MapDashboard: React.FC<MapDashboardProps> = ({
   const [mapType, setMapType] = useState<MapType>('standard');
   const [showTraffic, setShowTraffic] = useState<boolean>(false);
   const [showKecamatan, setShowKecamatan] = useState<boolean>(true);
-  const [showRadarRadius, setShowRadarRadius] = useState<boolean>(false);
   const [showPolsek, setShowPolsek] = useState<boolean>(true);
 
   // Bank yang menjadi fokus rute navigasi (Otomatis prioritaskan yang berstatus 'Bahaya')
@@ -462,7 +461,7 @@ export const MapDashboard: React.FC<MapDashboardProps> = ({
       )}
 
       {/* ==================================================================== */}
-      {/* GOOGLE MAPS STYLE LAYER SWITCHER (Satelit, Medan, Lalu Lintas, Taktis) */}
+      {/* GOOGLE MAPS STYLE LAYER SWITCHER (Satelit, Medan, Lalu Lintas) */}
       {/* ==================================================================== */}
       <div className="absolute bottom-4 left-4 z-20 pointer-events-auto flex items-end gap-2.5 max-w-[calc(100%-2rem)]">
         {/* Tombol Utama Satelit / Standar (Google Maps Style) */}
@@ -573,35 +572,10 @@ export const MapDashboard: React.FC<MapDashboardProps> = ({
             </span>
           </button>
 
-          {/* 3. Taktis Polresta (Command Center Dark Mode) */}
-          <button
-            type="button"
-            onClick={() => setMapType((prev) => (prev === 'dark' ? 'standard' : 'dark'))}
-            className={`flex flex-col items-center gap-1 p-1 rounded-xl transition-all cursor-pointer shrink-0 ${
-              mapType === 'dark'
-                ? 'bg-police-950 text-emerald-400 ring-2 ring-emerald-500 font-bold'
-                : 'text-slate-700 hover:bg-slate-100'
-            }`}
-            title="Tampilan Peta Taktis Gelap (Command Center Dark)"
-          >
-            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-xs relative flex items-center justify-center bg-slate-900 border border-slate-700">
-              <svg viewBox="0 0 40 40" className="w-full h-full">
-                <rect width="40" height="40" fill="#0f172a" />
-                <path d="M0 16 L40 16 M0 28 L40 28 M16 0 L16 40" stroke="#334155" strokeWidth="2" />
-                <circle cx="20" cy="20" r="12" fill="none" stroke="#10b981" strokeWidth="1.5" strokeDasharray="3 3" />
-                <circle cx="20" cy="20" r="3" fill="#10b981" />
-              </svg>
-              {mapType === 'dark' && (
-                <div className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white" />
-              )}
-            </div>
-            <span className="text-[10px] sm:text-[11px] font-semibold leading-tight">Taktis</span>
-          </button>
-
           {/* Divider Pemisah */}
           <div className="h-9 w-px bg-slate-200 shrink-0" />
 
-          {/* 4. Batas Wilayah Kecamatan */}
+          {/* Batas Wilayah Kecamatan */}
           <button
             type="button"
             onClick={() => setShowKecamatan((prev) => !prev)}
@@ -627,34 +601,7 @@ export const MapDashboard: React.FC<MapDashboardProps> = ({
             </span>
           </button>
 
-          {/* 5. Radius Respon Patroli Mako */}
-          <button
-            type="button"
-            onClick={() => setShowRadarRadius((prev) => !prev)}
-            className={`flex flex-col items-center gap-1 p-1 rounded-xl transition-all cursor-pointer shrink-0 ${
-              showRadarRadius
-                ? 'bg-blue-50 text-blue-800 ring-2 ring-blue-500 font-bold'
-                : 'text-slate-700 hover:bg-slate-100'
-            }`}
-            title="Tampilkan Radius Respon Samapta 3 km (5 menit) & 6 km (10 menit)"
-          >
-            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-xs relative flex items-center justify-center bg-blue-50 border border-blue-200">
-              <svg viewBox="0 0 40 40" className="w-full h-full">
-                <rect width="40" height="40" fill="#eff6ff" />
-                <circle cx="20" cy="20" r="16" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3 2" />
-                <circle cx="20" cy="20" r="8" fill="#dbeafe" stroke="#2563eb" strokeWidth="1.5" />
-                <circle cx="20" cy="20" r="2" fill="#1d4ed8" />
-              </svg>
-              {showRadarRadius && (
-                <div className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-blue-500 border border-white" />
-              )}
-            </div>
-            <span className="text-[10px] sm:text-[11px] font-semibold leading-tight">
-              {showRadarRadius ? 'Radius (ON)' : 'Radius'}
-            </span>
-          </button>
-
-          {/* 6. Simpul Server Kantor Polsek */}
+          {/* Simpul Server Kantor Polsek */}
           <button
             type="button"
             onClick={() => setShowPolsek((prev) => !prev)}
@@ -763,34 +710,6 @@ export const MapDashboard: React.FC<MapDashboardProps> = ({
             style={geoJsonStyle}
             onEachFeature={onEachKecamatan}
           />
-        )}
-
-        {/* LINGKARAN RADIUS RESPON PATROLI MAKO */}
-        {showRadarRadius && (
-          <>
-            <Circle
-              center={POLRESTA_HQ_POSITION}
-              radius={3000}
-              pathOptions={{
-                color: '#10b981',
-                fillColor: '#10b981',
-                fillOpacity: 0.08,
-                weight: 1.5,
-                dashArray: '4, 4',
-              }}
-            />
-            <Circle
-              center={POLRESTA_HQ_POSITION}
-              radius={6000}
-              pathOptions={{
-                color: '#3b82f6',
-                fillColor: '#3b82f6',
-                fillOpacity: 0.04,
-                weight: 1.5,
-                dashArray: '6, 6',
-              }}
-            />
-          </>
         )}
 
         {/* MARKER KHUSUS: MAKO POLRESTA BANDAR LAMPUNG (Pusat Komando) */}

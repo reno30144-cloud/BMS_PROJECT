@@ -136,7 +136,7 @@ export const DeletePolsekModal: React.FC<DeletePolsekModalProps> = ({
           <div className="bg-red-50/70 border border-red-200/80 rounded-2xl p-3.5 text-xs text-red-900 flex items-start gap-3">
             <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              Tindakan ini akan <strong>menghapus simpul server</strong> dari sistem BEMS dan menghilangkan penanda radar lokasi Polsek pada peta taktis Polresta.
+              Tindakan ini akan <strong>menghapus simpul server</strong> dari sistem BEMS dan menghilangkan penanda radar lokasi Polsek pada peta GIS Polresta.
             </p>
           </div>
 

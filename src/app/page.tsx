@@ -751,7 +751,7 @@ export default function DashboardPage() {
                               setActiveTab('map');
                             }}
                             className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95 border border-slate-700 cursor-pointer"
-                            title="Tampilkan peta rute taktis dari Mako ke lokasi bank"
+                            title="Tampilkan peta rute navigasi dari Mako ke lokasi bank"
                           >
                             <Navigation className="w-4 h-4 text-emerald-400" />
                             <span>Peta Radar</span>
