@@ -80,29 +80,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className="flex flex-col h-full justify-between bg-[#102A43] text-white select-none">
       {/* Bagian Atas: Header Brand & Navigasi (Bisa scroll jika layar pendek) */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {/* Header Identitas Institusi Polresta (Tanpa Kotak pada Logo) */}
+        {/* Header Identitas Institusi Polresta (Desain Bersih, Tajam & Modern Tanpa Efek Cahaya Bulat) */}
         <div className="p-5 border-b border-white/10 bg-[#102A43]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3.5 min-w-0">
-              {/* Logo Siger Polresta */}
+              {/* Logo Siger Polresta (Bersih & Tajam) */}
               <img
                 src="/logo.png"
                 alt="Logo Siger Polresta Bandar Lampung"
-                className="h-14 w-auto max-w-[62px] object-contain shrink-0 transition-transform duration-200 hover:scale-105 drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)] cursor-pointer"
+                className="h-14 w-auto max-w-[62px] object-contain shrink-0 transition-transform duration-200 hover:scale-105 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] cursor-pointer"
               />
+
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-[10px] font-black tracking-widest uppercase bg-amber-500 text-white px-2 py-0.5 rounded-md font-mono shadow-xs">
+                {/* Badge BEMS */}
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-[10px] font-black tracking-widest uppercase bg-amber-500 text-white px-2.5 py-0.5 rounded-md font-mono shadow-xs">
                     BEMS
                   </span>
-                  <span className="text-[9px] font-mono font-semibold text-blue-200 bg-white/10 px-1.5 py-0.5 rounded border border-white/10">
-                    PRESISI
-                  </span>
                 </div>
-                <h1 className="text-base font-extrabold text-white tracking-tight leading-tight truncate">
+
+                <h1 className="text-lg font-black text-white tracking-wider leading-none truncate">
                   POLRESTA
                 </h1>
-                <p className="text-[11px] font-semibold text-amber-300 tracking-wide truncate">
+                <p className="text-xs font-semibold text-amber-300 tracking-wide truncate mt-1">
                   Bandar Lampung
                 </p>
               </div>
@@ -122,15 +122,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Status Kesiagaan 24/7 */}
-          <div className="mt-3.5 pt-3 border-t border-white/10 flex items-center justify-between text-[11px]">
+          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-2 text-blue-100">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
               </span>
-              <span className="font-medium text-blue-100">Command Center SPKT</span>
+              <span className="font-semibold text-blue-100/90 tracking-wide">Command Center SPKT</span>
             </span>
-            <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/40 px-2 py-0.5 rounded-full font-mono tracking-wider shadow-xs">
+            <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 border border-amber-400/30 px-2 py-0.5 rounded-full font-mono tracking-wider shadow-xs">
               24/7 SIAGA
             </span>
           </div>
