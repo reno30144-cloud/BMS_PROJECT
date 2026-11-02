@@ -316,6 +316,12 @@ void sendHeartbeatHTTPS() {
     int httpCode = https.POST(payload);
     if (httpCode > 0) {
       Serial.printf("💓 [HEARTBEAT HTTPS] Sukses (Code: %d, RSSI: %d dBm) -> Status Web: STANDBY (Hijau)\n", httpCode, rssi);
+      // Kedipan LED visual singkat (80ms) tanda komunikasi Vercel aktif saat dicolok casan
+      if (!isPanicTriggered) {
+        digitalWrite(led1Pin, HIGH);
+        delay(80);
+        digitalWrite(led1Pin, LOW);
+      }
     } else {
       Serial.printf("⚠️ [HEARTBEAT HTTPS] Gagal: %s (%d)\n", https.errorToString(httpCode).c_str(), httpCode);
     }
@@ -371,25 +377,46 @@ void sendStatusJSON() {
 // =========================================================================
 void connectToInternetWiFi() {
   Serial.println("\n==========================================");
-  Serial.println("🌐 [WI-FI] Menghubungkan ke Wi-Fi Internet");
+  Serial.println("🌐 [WI-FI] Memindai & Menghubungkan ke Internet");
   Serial.printf("📶 Target SSID: '%s'\n", sta_ssid);
   Serial.printf("🔑 Kata Sandi : '%s'\n", sta_password);
   Serial.println("==========================================");
 
+  // Pindai sinyal sekitar terlebih dahulu
+  int n = WiFi.scanNetworks();
+  String matchedSSID = sta_ssid;
+  bool found = false;
+
+  for (int i = 0; i < n; i++) {
+    if (WiFi.SSID(i).equalsIgnoreCase("tripanca")) {
+      matchedSSID = WiFi.SSID(i);
+      found = true;
+      Serial.printf("🎯 [DITEMUKAN] Sinyal '%s' terdeteksi! (Kekuatan: %d dBm, Channel: %d)\n",
+                    matchedSSID.c_str(), WiFi.RSSI(i), WiFi.channel(i));
+      break;
+    }
+  }
+
+  if (!found) {
+    Serial.println("⚠️ Wi-Fi 'Tripanca' belum terdeteksi di pemindaian 2.4 GHz.");
+    Serial.println("   Mencoba tetap menyambung ke SSID default 'Tripanca'...");
+  }
+
   // Percobaan 1: Sandi resmi yang diinput user ("tieulaja")
-  WiFi.begin(sta_ssid, sta_password);
+  Serial.printf("🔑 Mencoba sandi '%s' ke '%s'...\n", sta_password, matchedSSID.c_str());
+  WiFi.begin(matchedSSID.c_str(), sta_password);
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < 8000) {
     delay(300);
     Serial.print(".");
   }
 
-  // Percobaan 2: Variasi 'tiwulaja' (jika typo huruf 'e'/'w')
+  // Percobaan 2: Variasi 'tiwulaja'
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n⚠️ [WI-FI] Belum tersambung dengan 'tieulaja'. Mencoba sandi 'tiwulaja'...");
+    Serial.println("\n⚠️ Belum tersambung dengan 'tieulaja'. Mencoba sandi 'tiwulaja'...");
     WiFi.disconnect();
     delay(200);
-    WiFi.begin(sta_ssid, "tiwulaja");
+    WiFi.begin(matchedSSID.c_str(), "tiwulaja");
     start = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - start < 6000) {
       delay(300);
@@ -399,33 +426,14 @@ void connectToInternetWiFi() {
 
   // Percobaan 3: Variasi 'tiwul ajah'
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n⚠️ [WI-FI] Mencoba sandi 'tiwul ajah'...");
+    Serial.println("\n⚠️ Mencoba sandi 'tiwul ajah'...");
     WiFi.disconnect();
     delay(200);
-    WiFi.begin(sta_ssid, "tiwul ajah");
+    WiFi.begin(matchedSSID.c_str(), "tiwul ajah");
     start = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - start < 6000) {
       delay(300);
       Serial.print(".");
-    }
-  }
-
-  // Jika tetap gagal, scan untuk melihat apakah SSID terlihat di 2.4 GHz
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n🔍 [WI-FI SCAN] Memindai sinyal 2.4 GHz di sekitar board...");
-    int n = WiFi.scanNetworks();
-    Serial.printf("Ditemukan %d jaringan Wi-Fi:\n", n);
-    bool found = false;
-    for (int i = 0; i < n; i++) {
-      Serial.printf("   [%d] '%s' (RSSI: %d dBm, Ch: %d)\n", i+1, WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.channel(i));
-      if (WiFi.SSID(i).equalsIgnoreCase("Tripanca")) {
-        found = true;
-      }
-    }
-    if (!found) {
-      Serial.println("\n⚠️ PERHATIAN PENTING:");
-      Serial.println("   SSID 'Tripanca' TIDAK DITEMUKAN di frekuensi 2.4 GHz!");
-      Serial.println("   Pastikan Hotspot HP / Router Anda disetel ke pita 2.4 GHz (ESP32-C3 tidak mendukung 5 GHz).");
     }
   }
 
@@ -439,14 +447,16 @@ void connectToInternetWiFi() {
 
     // Kedipkan LED 2 kali tanda sukses koneksi internet
     digitalWrite(led1Pin, HIGH); digitalWrite(led2Pin, HIGH);
-    delay(200);
+    delay(250);
     digitalWrite(led1Pin, LOW); digitalWrite(led2Pin, LOW);
 
     // Kirim heartbeat perdana ke server Vercel seketika agar status langsung STANDBY di web!
     Serial.println("📡 Mengirim status STANDBY ke Vercel sekarang...");
     sendHeartbeatHTTPS();
   } else {
-    Serial.println("\n❌ Wi-Fi belum tersambung. Sistem akan mencoba reconnect otomatis tiap 15 detik.");
+    Serial.println("\n❌ Wi-Fi belum tersambung.");
+    Serial.println("   -> Jika memakai Hotspot HP: Pastikan pita disetel ke 2.4 GHz (ESP32 tidak bisa 5 GHz).");
+    Serial.println("   -> Reconnect otomatis akan terus mencoba di background.");
   }
 }
 
@@ -470,14 +480,9 @@ void setup() {
   WiFi.disconnect(true);
   delay(100);
 
-  // 2. Aktifkan Mode Station terlebih dahulu untuk terhubung ke internet
+  // 2. Aktifkan Mode Station terlebih dahulu untuk terhubung ke internet (DHCP Otomatis)
   WiFi.mode(WIFI_AP_STA);
   WiFi.setSleep(false); // Radio tetap siaga tanpa sleep
-
-  // Gunakan Google DNS sebagai DNS cadangan agar resolving domain Vercel lancar
-  IPAddress primaryDNS(8, 8, 8, 8);
-  IPAddress secondaryDNS(1, 1, 1, 1);
-  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, primaryDNS, secondaryDNS);
 
   // 3. Hubungkan ke Wi-Fi Internet Tripanca DULUAN (sebelum SoftAP mengunci channel)
   connectToInternetWiFi();
