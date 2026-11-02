@@ -21,9 +21,9 @@
 // --- 1. Konfigurasi Wi-Fi Internet (Station Mode untuk HTTPS ke Vercel) ---
 // Sesuai data Wi-Fi resmi Anda:
 //   Nama Wi-Fi (SSID) : Tripanca
-//   Kata Sandi       : tiwul ajah
+//   Kata Sandi       : tieulaja
 const char* sta_ssid     = "Tripanca";
-const char* sta_password = "tiwul ajah";
+const char* sta_password = "tieulaja";
 
 // --- 2. URL Endpoint Server Vercel HTTPS & Identitas IoT BEMS ---
 // Domain Vercel resmi sistem BEMS Polresta Bandar Lampung (https://bms-project-ochre.vercel.app/)
@@ -350,7 +350,7 @@ void sendStatusJSON() {
 }
 
 // =========================================================================
-// HELPER KONEKSI WI-FI INTERNET (SSID: Tripanca, SANDI: tiwul ajah)
+// HELPER KONEKSI WI-FI INTERNET (SSID: Tripanca, SANDI: tieulaja)
 // =========================================================================
 void connectToInternetWiFi() {
   Serial.println("\n🌐 [WI-FI] Menghubungkan ke Wi-Fi Internet...");
@@ -365,12 +365,12 @@ void connectToInternetWiFi() {
     Serial.print(".");
   }
 
-  // Fallback cadangan: Coba variasi tanpa spasi jika router menolak spasi
+  // Fallback cadangan: Coba variasi 'tiwulaja' jika ada perbedaan ejaan huruf 'w' / 'e'
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n🔄 Mencoba variasi sandi alternatif ('tiwulajah')...");
+    Serial.println("\n🔄 Mencoba variasi sandi alternatif ('tiwulaja')...");
     WiFi.disconnect();
     delay(200);
-    WiFi.begin(sta_ssid, "tiwulajah");
+    WiFi.begin(sta_ssid, "tiwulaja");
     wifiStart = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 5000) {
       delay(250);
@@ -379,10 +379,10 @@ void connectToInternetWiFi() {
   }
 
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n🔄 Mencoba variasi sandi alternatif ('tiwulaja')...");
+    Serial.println("\n🔄 Mencoba variasi sandi alternatif ('tiwul ajah')...");
     WiFi.disconnect();
     delay(200);
-    WiFi.begin(sta_ssid, "tiwulaja");
+    WiFi.begin(sta_ssid, "tiwul ajah");
     wifiStart = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 5000) {
       delay(250);
