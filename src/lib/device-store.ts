@@ -8,13 +8,13 @@ class DeviceStore {
   private listeners: Set<(devices: Device[]) => void> = new Set();
 
   public getDevices(): Device[] {
-    // Evaluasi status OFFLINE otomatis jika heartbeat > 10 menit
+    // Evaluasi status OFFLINE otomatis responsif jika heartbeat > 15 detik
     const now = Date.now();
     return this.devices.map((device) => {
       const lastHb = new Date(device.lastHeartbeatAt).getTime();
-      const diffMinutes = (now - lastHb) / (1000 * 60);
+      const diffSeconds = (now - lastHb) / 1000;
 
-      if (diffMinutes > 10 && device.status !== 'TRIGGERED') {
+      if (diffSeconds > 15 && device.status !== 'TRIGGERED') {
         return { ...device, status: 'OFFLINE' as DeviceStatus };
       }
       return device;

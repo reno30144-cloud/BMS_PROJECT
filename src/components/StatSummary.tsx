@@ -116,7 +116,7 @@ export const StatSummary: React.FC<StatSummaryProps> = ({
         </div>
         <div className="mt-2 sm:mt-3 flex items-baseline gap-1.5 sm:gap-2">
           <span className="text-2xl sm:text-3xl font-extrabold text-slate-700 font-mono">{offlineCount}</span>
-          <span className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">&gt; 10 Mnt Ping</span>
+          <span className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">&gt; 15 Dtk Ping</span>
         </div>
       </div>
     </div>

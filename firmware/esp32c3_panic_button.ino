@@ -675,9 +675,9 @@ void loop() {
     }
   }
 
-  // --- 5. HEARTBEAT PERIODIK KE VERCEL HTTPS (TIAP 30 DETIK) ---
+  // --- 5. HEARTBEAT PERIODIK KE VERCEL HTTPS (TIAP 4 DETIK - SUPER RESPONSIF) ---
   static unsigned long lastHttpsHeartbeat = 0;
-  if (now - lastHttpsHeartbeat >= 30000) {
+  if (now - lastHttpsHeartbeat >= 4000) {
     lastHttpsHeartbeat = now;
     sendHeartbeatHTTPS();
   }

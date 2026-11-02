@@ -46,11 +46,11 @@ export async function getDevicesWithFallback(): Promise<Device[]> {
     const now = Date.now();
     return validData.map((d: RawDbDevice) => {
       const lastHb = d.last_heartbeat_at ? new Date(d.last_heartbeat_at).getTime() : 0;
-      const diffMinutes = (now - lastHb) / (1000 * 60);
+      const diffSeconds = (now - lastHb) / 1000;
 
-      // Auto OFFLINE calculation jika > 10 menit tanpa ping dan bukan TRIGGERED
+      // Auto OFFLINE responsif: jika > 15 detik tanpa ping dan bukan kondisi TRIGGERED
       let currentStatus: DeviceStatus = d.status || 'OFFLINE';
-      if (diffMinutes > 10 && currentStatus !== 'TRIGGERED') {
+      if (diffSeconds > 15 && currentStatus !== 'TRIGGERED') {
         currentStatus = 'OFFLINE';
       }
 
