@@ -10,7 +10,7 @@
 // =========================================================================
 // BEMS POLRESTA BANDAR LAMPUNG - TRIPLE MODE (HTTPS CLOUD + USB + WI-FI AP)
 // Perangkat: ESP32-C3 SuperMini / DevKit
-// Lokasi / Unit: Tripanca
+// Lokasi / Unit: Tripanca (Bank Mandiri KCP Kartini)
 // Pinout Sesuai Board Anda:
 //   - Tombol Fisik:  GPIO 1 (INPUT_PULLUP)
 //   - LED 1:         GPIO 0 (OUTPUT)
@@ -26,7 +26,7 @@ const char* sta_ssid     = "Tripanca";
 const char* sta_password = "tieulaja";
 
 // --- 2. URL Endpoint Server Vercel HTTPS & Identitas IoT BEMS ---
-// Domain Vercel resmi sistem BEMS Polresta Bandar Lampung (https://bms-project-ochre.vercel.app/)
+// Domain Vercel resmi sistem BEMS Polresta Bandar Lampung
 const char* triggerUrl   = "https://bms-project-ochre.vercel.app/api/v1/emergency/trigger";
 const char* heartbeatUrl = "https://bms-project-ochre.vercel.app/api/v1/emergency/heartbeat";
 
@@ -48,7 +48,7 @@ const int buzzerPin = 2;  // Buzzer (GPIO 2)
 // Set ke true jika buzzer aktif saat HIGH. Ubah ke false jika Active-LOW.
 const bool BUZZER_ACTIVE_HIGH = true;
 
-// MODE SILENT ALARM: Suara buzzer fisik pada modul Arduino/ESP32 dinonaktifkan
+// MODE SILENT ALARM: Suara buzzer fisik pada modul Arduino/ESP32 dinonaktifkan total
 // agar tidak terdengar di lokasi teller/bank (sesuai SOP keamanan perbankan Polresta)
 const bool SILENT_ALARM_MODE = true;
 
@@ -201,10 +201,11 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
 // =========================================================================
 void setBuzzerOutput(bool active) {
   if (SILENT_ALARM_MODE) {
-    // Selalu paksa buzzer mati jika silent alarm mode aktif
-    digitalWrite(buzzerPin, BUZZER_ACTIVE_HIGH ? LOW : HIGH);
+    // Di mode silent alarm, pastikan pin buzzer selalu mati (High-Z) agar senyap total
+    pinMode(buzzerPin, INPUT);
     return;
   }
+  pinMode(buzzerPin, OUTPUT);
   if (BUZZER_ACTIVE_HIGH) {
     digitalWrite(buzzerPin, active ? HIGH : LOW);
   } else {
@@ -217,11 +218,26 @@ void setBuzzerOutput(bool active) {
 // =========================================================================
 bool sendEmergencyTriggerHTTPS() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠️ [HTTPS POST] Wi-Fi Station belum terhubung ke Internet! Melewatkan transmisi Vercel.");
+    Serial.println("⚠️ [HTTPS POST] Wi-Fi belum tersambung. Mencoba menyambung cepat (3 detik)...");
+    WiFi.reconnect();
+    unsigned long t0 = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 3500) {
+      delay(200);
+      Serial.print(".");
+    }
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("\n❌ [HTTPS POST] Gagal kirim: Wi-Fi benar-benar tidak terhubung!");
+    // Kedipkan LED cepat 5x sebagai tanda gagal koneksi internet
+    for (int i = 0; i < 5; i++) {
+      digitalWrite(led1Pin, HIGH); delay(70);
+      digitalWrite(led1Pin, LOW); delay(70);
+    }
     return false;
   }
 
-  Serial.println("\n🚨 [HTTPS POST] Mengirim sinyal darurat ke server Vercel...");
+  Serial.println("\n🚨 [HTTPS POST] MENGIRIM SINYAL BAHAYA KE SERVER VERCEL...");
 
   // Inisialisasi WiFiClientSecure
   WiFiClientSecure* client = new WiFiClientSecure();
@@ -257,7 +273,7 @@ bool sendEmergencyTriggerHTTPS() {
     int httpCode = https.POST(payload);
 
     if (httpCode > 0) {
-      Serial.printf("✅ [HTTPS SUCCESS] Status Code: %d\n", httpCode);
+      Serial.printf("✅ [ALARM TERKIRIM KE VERCEL!] Status Code: %d\n", httpCode);
       String response = https.getString();
       Serial.print("📥 [SERVER RESPONSE]: ");
       Serial.println(response);
@@ -298,7 +314,7 @@ void sendHeartbeatHTTPS() {
 
     int httpCode = https.POST(payload);
     if (httpCode > 0) {
-      Serial.printf("💓 [HEARTBEAT HTTPS] Sukses (Code: %d, RSSI: %d dBm)\n", httpCode, rssi);
+      Serial.printf("💓 [HEARTBEAT HTTPS] Sukses (Code: %d, RSSI: %d dBm) -> Status Web: STANDBY (Hijau)\n", httpCode, rssi);
     } else {
       Serial.printf("⚠️ [HEARTBEAT HTTPS] Gagal: %s (%d)\n", https.errorToString(httpCode).c_str(), httpCode);
     }
@@ -353,50 +369,83 @@ void sendStatusJSON() {
 // HELPER KONEKSI WI-FI INTERNET (SSID: Tripanca, SANDI: tieulaja)
 // =========================================================================
 void connectToInternetWiFi() {
-  Serial.println("\n🌐 [WI-FI] Menghubungkan ke Wi-Fi Internet...");
-  Serial.print("📶 Nama SSID  : "); Serial.println(sta_ssid);
-  Serial.print("🔑 Kata Sandi : "); Serial.println(sta_password);
+  Serial.println("\n==========================================");
+  Serial.println("🌐 [WI-FI] Menghubungkan ke Wi-Fi Internet");
+  Serial.printf("📶 Target SSID: '%s'\n", sta_ssid);
+  Serial.printf("🔑 Kata Sandi : '%s'\n", sta_password);
+  Serial.println("==========================================");
 
+  // Percobaan 1: Sandi resmi yang diinput user ("tieulaja")
   WiFi.begin(sta_ssid, sta_password);
-
-  unsigned long wifiStart = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 7000) {
-    delay(250);
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 8000) {
+    delay(300);
     Serial.print(".");
   }
 
-  // Fallback cadangan: Coba variasi 'tiwulaja' jika ada perbedaan ejaan huruf 'w' / 'e'
+  // Percobaan 2: Variasi 'tiwulaja' (jika typo huruf 'e'/'w')
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n🔄 Mencoba variasi sandi alternatif ('tiwulaja')...");
+    Serial.println("\n⚠️ [WI-FI] Belum tersambung dengan 'tieulaja'. Mencoba sandi 'tiwulaja'...");
     WiFi.disconnect();
     delay(200);
     WiFi.begin(sta_ssid, "tiwulaja");
-    wifiStart = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 5000) {
-      delay(250);
+    start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 6000) {
+      delay(300);
       Serial.print(".");
     }
   }
 
+  // Percobaan 3: Variasi 'tiwul ajah'
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n🔄 Mencoba variasi sandi alternatif ('tiwul ajah')...");
+    Serial.println("\n⚠️ [WI-FI] Mencoba sandi 'tiwul ajah'...");
     WiFi.disconnect();
     delay(200);
     WiFi.begin(sta_ssid, "tiwul ajah");
-    wifiStart = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 5000) {
-      delay(250);
+    start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 6000) {
+      delay(300);
       Serial.print(".");
+    }
+  }
+
+  // Jika tetap gagal, scan untuk melihat apakah SSID terlihat di 2.4 GHz
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("\n🔍 [WI-FI SCAN] Memindai sinyal 2.4 GHz di sekitar board...");
+    int n = WiFi.scanNetworks();
+    Serial.printf("Ditemukan %d jaringan Wi-Fi:\n", n);
+    bool found = false;
+    for (int i = 0; i < n; i++) {
+      Serial.printf("   [%d] '%s' (RSSI: %d dBm, Ch: %d)\n", i+1, WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.channel(i));
+      if (WiFi.SSID(i).equalsIgnoreCase("Tripanca")) {
+        found = true;
+      }
+    }
+    if (!found) {
+      Serial.println("\n⚠️ PERHATIAN PENTING:");
+      Serial.println("   SSID 'Tripanca' TIDAK DITEMUKAN di frekuensi 2.4 GHz!");
+      Serial.println("   Pastikan Hotspot HP / Router Anda disetel ke pita 2.4 GHz (ESP32-C3 tidak mendukung 5 GHz).");
     }
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n✅ [WI-FI TERHUBUNG!] Berhasil terhubung ke Wi-Fi Tripanca.");
-    Serial.print("   SSID Terhubung:        "); Serial.println(WiFi.SSID());
-    Serial.print("   IP Lokal Station:      "); Serial.println(WiFi.localIP());
-    Serial.print("   Kekuatan Sinyal (RSSI): "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
+    Serial.println("\n\n🎉 ==========================================");
+    Serial.println("✅ [WI-FI BERHASIL TERHUBUNG!]");
+    Serial.printf("   SSID Aktif     : %s\n", WiFi.SSID().c_str());
+    Serial.printf("   IP ESP32       : %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("   Kekuatan (RSSI): %d dBm\n", WiFi.RSSI());
+    Serial.println("==========================================");
+
+    // Kedipkan LED 2 kali tanda sukses koneksi internet
+    digitalWrite(led1Pin, HIGH); digitalWrite(led2Pin, HIGH);
+    delay(200);
+    digitalWrite(led1Pin, LOW); digitalWrite(led2Pin, LOW);
+
+    // Kirim heartbeat perdana ke server Vercel seketika agar status langsung STANDBY di web!
+    Serial.println("📡 Mengirim status STANDBY ke Vercel sekarang...");
+    sendHeartbeatHTTPS();
   } else {
-    Serial.println("\n⚠️ [WI-FI] Belum berhasil tersambung. Reconnect otomatis akan terus mencoba di background.");
+    Serial.println("\n❌ Wi-Fi belum tersambung. Sistem akan mencoba reconnect otomatis tiap 15 detik.");
   }
 }
 
@@ -410,41 +459,45 @@ void setup() {
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(led1Pin, OUTPUT);
   pinMode(led2Pin, OUTPUT);
-  pinMode(buzzerPin, OUTPUT);
+  setBuzzerOutput(false); // Pastikan buzzer diam total (High-Z)
 
-  // Pastikan output mati saat awal booting
-  setBuzzerOutput(false);
   digitalWrite(led1Pin, LOW);
   digitalWrite(led2Pin, LOW);
 
-  // Inisialisasi Mode Wi-Fi Ganda: Station (Internet) + Access Point (Portal Darurat)
-  WiFi.mode(WIFI_OFF);
+  // 1. Matikan radio Wi-Fi dulu agar bersih
+  WiFi.disconnect(true);
   delay(100);
 
+  // 2. Aktifkan Mode Station terlebih dahulu untuk terhubung ke internet
   WiFi.mode(WIFI_AP_STA);
-  WiFi.setSleep(false); // Pastikan radio memancar 100% tanpa sleep
+  WiFi.setSleep(false); // Radio tetap siaga tanpa sleep
 
+  // Gunakan Google DNS sebagai DNS cadangan agar resolving domain Vercel lancar
+  IPAddress primaryDNS(8, 8, 8, 8);
+  IPAddress secondaryDNS(1, 1, 1, 1);
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, primaryDNS, secondaryDNS);
+
+  // 3. Hubungkan ke Wi-Fi Internet Tripanca DULUAN (sebelum SoftAP mengunci channel)
+  connectToInternetWiFi();
+
+  // 4. Konfigurasi SoftAP lokal tanpa mengunci channel
   IPAddress local_ip(192, 168, 4, 1);
   IPAddress gateway(192, 168, 4, 1);
   IPAddress subnet(255, 255, 255, 0);
   WiFi.softAPConfig(local_ip, gateway, subnet);
 
-  // Nyalakan Access Point Lokal (Channel 1 untuk kompatibilitas universal semua HP)
-  bool apSuccess = WiFi.softAP(ssid, password, 1, 0, 4);
+  bool apSuccess = WiFi.softAP(ssid, password);
   if (!apSuccess) {
-    // Fallback: Jika chip menolak enkripsi kata sandi, aktifkan mode Terbuka (Open)
-    apSuccess = WiFi.softAP(ssid, NULL, 1, 0, 4);
+    apSuccess = WiFi.softAP(ssid, NULL);
   }
 
-  // Atur TX Power ke 76 (~19 dBm) agar sinyal kuat menembus casing
-  esp_wifi_set_max_tx_power(76);
-  esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
+  // Atur TX Power yang stabil (68 ~ 17 dBm) cegah brownout drop tegangan
+  esp_wifi_set_max_tx_power(68);
 
-  // Jalankan DNS Server Captive Portal (Mengarahkan semua domain ke IP 192.168.4.1)
+  // Jalankan DNS Server Captive Portal
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(DNS_PORT, "*", local_ip);
 
-  // Jalankan mDNS responder agar bisa diakses via http://bems.local
   MDNS.begin("bems");
 
   Serial.println("\n==========================================");
@@ -452,21 +505,16 @@ void setup() {
   Serial.println("  POLRESTA BANDAR LAMPUNG                 ");
   Serial.println("  Unit / Lokasi: Tripanca                 ");
   Serial.println("==========================================");
-  Serial.print("🟢 Status Wi-Fi AP:    "); Serial.println(apSuccess ? "MEMANCARKAN SINYAL (AKTIF)" : "GAGAL");
-  Serial.print("📶 Nama SSID AP Lokal: "); Serial.println(ssid);
-  Serial.print("🔑 Kata Sandi AP:      "); Serial.println(password);
+  Serial.print("🟢 Status Wi-Fi AP:    "); Serial.println(apSuccess ? "AKTIF (192.168.4.1)" : "GAGAL");
+  Serial.print("📶 SSID AP Lokal:      "); Serial.println(ssid);
   Serial.print("🌐 Alamat IP Web AP:   http://"); Serial.println(WiFi.softAPIP());
-  Serial.println("🌐 Alamat Alternatif:  http://bems.local");
   Serial.print("🚀 Target HTTPS Cloud: "); Serial.println(triggerUrl);
   Serial.print("🆔 Device UID:         "); Serial.println(deviceUid);
   Serial.print("🔑 Secret Auth Token:  "); Serial.println(deviceToken);
   Serial.println("⚡ Serial Protocol:     ESPC32-B");
   Serial.println("==========================================");
 
-  // Hubungkan ke Wi-Fi Internet Tripanca / tiwulaja
-  connectToInternetWiFi();
-
-  // Routing HTTP Server (Dilengkapi header anti-cache agar peramban HP tidak menampilkan versi lama)
+  // Routing HTTP Server
   server.on("/", HTTP_GET, []() {
     server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     server.sendHeader("Pragma", "no-cache");
@@ -513,7 +561,7 @@ void setup() {
     sendStatusJSON();
   });
 
-  // Captive Portal Endpoints (Android & iPhone Auto-Popup Portal)
+  // Captive Portal Endpoints
   server.on("/generate_204", HTTP_GET, []() {
     server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     server.send_P(200, "text/html", HTML_PAGE);
@@ -535,20 +583,17 @@ void setup() {
   server.begin();
   Serial.println("🟢 [SISTEM] Server Web Siap di http://192.168.4.1 atau http://bems.local");
 
-  // INDIKATOR FISIK: Nyalakan LED pendek 120ms tanda siap (Buzzer fisik tetap senyap)
+  // INDIKATOR FISIK: Nyalakan LED pendek 100ms tanda booting siap (Buzzer fisik tetap senyap total)
   digitalWrite(led1Pin, HIGH);
-  digitalWrite(led2Pin, HIGH);
-  setBuzzerOutput(false);
-  delay(120);
+  delay(100);
   digitalWrite(led1Pin, LOW);
-  digitalWrite(led2Pin, LOW);
 
-  // Stabilisasi tombol: cegah false trigger dari hentakan awal booting
+  // Stabilisasi tombol
   delay(200);
   buttonState = digitalRead(buttonPin);
   lastReading = buttonState;
   lastDebounceTime = millis();
-  panicCooldownTime = millis() + 1500; // Kunci pemicu alarm selama 1.5 detik pertama boot
+  panicCooldownTime = millis() + 1500;
 }
 
 // =========================================================================
@@ -569,15 +614,13 @@ void loop() {
   }
 
   // --- 1. FILTER ANTI-NOISE TOMBOL FISIK (GPIO 1) ---
-  // Hanya evaluasi tombol jika TIDAK dalam periode cooldown alarm (mencegah feedback induksi buzzer)
   if (now >= panicCooldownTime) {
     int reading = digitalRead(buttonPin);
 
     if (reading != lastReading) {
-      lastDebounceTime = now; // Catat waktu saat terjadi perubahan sinyal
+      lastDebounceTime = now;
     }
 
-    // Jika sinyal stabil bertahan lebih dari 80 ms
     if ((now - lastDebounceTime) > DEBOUNCE_DELAY) {
       if (reading != buttonState) {
         buttonState = reading;
@@ -587,7 +630,6 @@ void loop() {
           Serial.println(">> [TOMBOL FISIK DITEKAN!] Memproses Alarm & Mengirim HTTPS...");
           triggerAlarmAction();
         } else {
-          // Tombol dilepas: matikan LED jika status toggle web sedang mati
           if (!statusLed1) digitalWrite(led1Pin, LOW);
           if (!statusLed2) digitalWrite(led2Pin, LOW);
         }
@@ -596,7 +638,7 @@ void loop() {
     lastReading = reading;
   }
 
-  // --- 2. TIMER NON-BLOCKING MATIKAN BUZZER (150ms) ---
+  // --- 2. TIMER NON-BLOCKING MATIKAN BUZZER ---
   if (isBuzzerBeeping && now >= buzzerOffTime) {
     isBuzzerBeeping = false;
     if (!statusBuzzer) {
@@ -610,19 +652,19 @@ void loop() {
     Serial.println("HEARTBEAT:ESPC32-B");
   }
 
-  // --- 4. AUTO-RECONNECT WI-FI INTERNET ---
+  // --- 4. AUTO-RECONNECT WI-FI INTERNET JIKA TERPUTUS ---
   static unsigned long lastWifiCheck = 0;
   if (now - lastWifiCheck >= 15000) {
     lastWifiCheck = now;
     if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("🔄 [Wi-Fi] Terputus. Menghubungkan ulang...");
+      Serial.println("🔄 [Wi-Fi] Terputus. Menghubungkan ulang ke Tripanca...");
       WiFi.reconnect();
     }
   }
 
-  // --- 5. HEARTBEAT PERIODIK KE VERCEL HTTPS (TIAP 60 DETIK) ---
+  // --- 5. HEARTBEAT PERIODIK KE VERCEL HTTPS (TIAP 30 DETIK) ---
   static unsigned long lastHttpsHeartbeat = 0;
-  if (now - lastHttpsHeartbeat >= 60000) {
+  if (now - lastHttpsHeartbeat >= 30000) {
     lastHttpsHeartbeat = now;
     sendHeartbeatHTTPS();
   }
