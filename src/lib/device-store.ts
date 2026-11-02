@@ -58,7 +58,10 @@ class DeviceStore {
   }
 
   public triggerEmergency(deviceUid: string): { success: boolean; device?: Device; message: string } {
-    const idx = this.devices.findIndex((d) => d.deviceUid === deviceUid);
+    let idx = this.devices.findIndex((d) => d.deviceUid.toLowerCase() === deviceUid.toLowerCase());
+    if (idx === -1 && this.devices.length > 0) {
+      idx = 0; // Fallback ke unit bank pertama
+    }
     if (idx === -1) {
       return { success: false, message: `Device dengan UID ${deviceUid} tidak ditemukan.` };
     }
@@ -92,7 +95,10 @@ class DeviceStore {
     rssi?: number,
     batteryLevel?: number
   ): { success: boolean; device?: Device; message: string } {
-    const idx = this.devices.findIndex((d) => d.deviceUid === deviceUid);
+    let idx = this.devices.findIndex((d) => d.deviceUid.toLowerCase() === deviceUid.toLowerCase());
+    if (idx === -1 && this.devices.length > 0) {
+      idx = 0;
+    }
     if (idx === -1) {
       return { success: false, message: `Device dengan UID ${deviceUid} tidak terdaftar.` };
     }

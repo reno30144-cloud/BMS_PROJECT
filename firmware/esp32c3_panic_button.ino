@@ -34,7 +34,7 @@ const char* heartbeatUrl = "https://bms-project-ochre.vercel.app/api/v1/emergenc
 
 // Header rahasia otentikasi perangkat IoT & UID unik teller
 const char* deviceToken  = "b3m5-p0lr35t4-53cr3t-t0k3n"; // Nilai header X-Device-Token
-const char* deviceUid    = "ESP32C3-BDL-001";              // Parameter payload JSON: device_uid
+const char* deviceUid    = "ESPC32-B";                    // Parameter payload JSON: device_uid (Sesuai Bank Mandiri KCP Kartini)
 
 // --- 3. Pengaturan Wi-Fi Access Point Cadangan (Portal Darurat Offline) ---
 // Gunakan tanda strip (-) bukan underscore (_) agar 100% terbaca di semua HP Android & iPhone
