@@ -19,16 +19,14 @@
 // =========================================================================
 
 // --- 1. Konfigurasi Wi-Fi Internet (Station Mode untuk HTTPS ke Vercel) ---
-// Sesuai data Wi-Fi Anda (Nama: Tripanca, SSID / Sandi: tiwulaja)
-// Sistem dilengkapi deteksi otomatis untuk kombinasi SSID & Password
-const char* sta_ssid_primary   = "Tripanca";
-const char* sta_pass_primary   = "tiwulaja";
-
-const char* sta_ssid_secondary = "tiwulaja";
-const char* sta_pass_secondary = "Tripanca";
+// Sesuai data Wi-Fi resmi Anda:
+//   Nama Wi-Fi (SSID) : Tripanca
+//   Kata Sandi       : tiwul ajah
+const char* sta_ssid     = "Tripanca";
+const char* sta_password = "tiwul ajah";
 
 // --- 2. URL Endpoint Server Vercel HTTPS & Identitas IoT BEMS ---
-// Domain Vercel resmi sistem BEMS Polresta Bandar Lampung
+// Domain Vercel resmi sistem BEMS Polresta Bandar Lampung (https://bms-project-ochre.vercel.app/)
 const char* triggerUrl   = "https://bms-project-ochre.vercel.app/api/v1/emergency/trigger";
 const char* heartbeatUrl = "https://bms-project-ochre.vercel.app/api/v1/emergency/heartbeat";
 
@@ -352,64 +350,48 @@ void sendStatusJSON() {
 }
 
 // =========================================================================
-// HELPER KONEKSI WI-FI INTERNET CERDAS (MULTI-KREDENSIAL / AUTO SCAN)
+// HELPER KONEKSI WI-FI INTERNET (SSID: Tripanca, SANDI: tiwul ajah)
 // =========================================================================
 void connectToInternetWiFi() {
-  Serial.println("\n🔍 [WI-FI SCAN] Memindai jaringan Wi-Fi sekitar...");
-  int n = WiFi.scanNetworks();
-  bool foundTripanca = false;
-  bool foundTiwulaja = false;
+  Serial.println("\n🌐 [WI-FI] Menghubungkan ke Wi-Fi Internet...");
+  Serial.print("📶 Nama SSID  : "); Serial.println(sta_ssid);
+  Serial.print("🔑 Kata Sandi : "); Serial.println(sta_password);
 
-  for (int i = 0; i < n; ++i) {
-    String netName = WiFi.SSID(i);
-    netName.toLowerCase();
-    if (netName.indexOf("tripanca") >= 0) foundTripanca = true;
-    if (netName.indexOf("tiwulaja") >= 0) foundTiwulaja = true;
-  }
-
-  const char* targetSSID = sta_ssid_primary;
-  const char* targetPass = sta_pass_primary;
-
-  if (foundTiwulaja && !foundTripanca) {
-    Serial.println("🎯 [WI-FI SCAN] Jaringan 'tiwulaja' terdeteksi aktif!");
-    targetSSID = sta_ssid_secondary;
-    targetPass = sta_pass_secondary;
-  } else if (foundTripanca) {
-    Serial.println("🎯 [WI-FI SCAN] Jaringan 'Tripanca' terdeteksi aktif!");
-    targetSSID = sta_ssid_primary;
-    targetPass = sta_pass_primary;
-  } else {
-    Serial.println("ℹ️ [WI-FI SCAN] Mencoba kredensial primer (Tripanca / tiwulaja)...");
-  }
-
-  Serial.printf("📶 Menyambungkan ke Wi-Fi: %s ...\n", targetSSID);
-  WiFi.begin(targetSSID, targetPass);
+  WiFi.begin(sta_ssid, sta_password);
 
   unsigned long wifiStart = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 6000) {
+  while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 7000) {
     delay(250);
     Serial.print(".");
   }
 
-  // Jika belum tersambung, coba permutasi kedua secara otomatis
+  // Fallback cadangan: Coba variasi tanpa spasi jika router menolak spasi
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n🔄 Mencoba kombinasi alternatif...");
-    const char* altSSID = (strcmp(targetSSID, "Tripanca") == 0) ? "tiwulaja" : "Tripanca";
-    const char* altPass = (strcmp(targetPass, "tiwulaja") == 0) ? "Tripanca" : "tiwulaja";
-
+    Serial.println("\n🔄 Mencoba variasi sandi alternatif ('tiwulajah')...");
     WiFi.disconnect();
     delay(200);
-    WiFi.begin(altSSID, altPass);
-
+    WiFi.begin(sta_ssid, "tiwulajah");
     wifiStart = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 6000) {
+    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 5000) {
+      delay(250);
+      Serial.print(".");
+    }
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("\n🔄 Mencoba variasi sandi alternatif ('tiwulaja')...");
+    WiFi.disconnect();
+    delay(200);
+    WiFi.begin(sta_ssid, "tiwulaja");
+    wifiStart = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 5000) {
       delay(250);
       Serial.print(".");
     }
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n✅ [WI-FI TERHUBUNG!] Siap mengirim sinyal darurat HTTPS ke Vercel.");
+    Serial.println("\n✅ [WI-FI TERHUBUNG!] Berhasil terhubung ke Wi-Fi Tripanca.");
     Serial.print("   SSID Terhubung:        "); Serial.println(WiFi.SSID());
     Serial.print("   IP Lokal Station:      "); Serial.println(WiFi.localIP());
     Serial.print("   Kekuatan Sinyal (RSSI): "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
