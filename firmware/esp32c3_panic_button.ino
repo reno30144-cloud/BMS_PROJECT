@@ -1,4 +1,6 @@
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
 #include <WebServer.h>
 #include <DNSServer.h>
 #include <ESPmDNS.h>
@@ -6,7 +8,7 @@
 #include "logo_data.h"
 
 // =========================================================================
-// BEMS POLRESTA BANDAR LAMPUNG - DUAL MODE FIRMWARE (USB + WI-FI ACCESS POINT)
+// BEMS POLRESTA BANDAR LAMPUNG - TRIPLE MODE (HTTPS CLOUD + USB + WI-FI AP)
 // Perangkat: ESP32-C3 SuperMini / DevKit
 // Pinout Sesuai Board Anda:
 //   - Tombol Fisik:  GPIO 1 (INPUT_PULLUP)
@@ -15,7 +17,21 @@
 //   - Buzzer:        GPIO 2 (OUTPUT)
 // =========================================================================
 
-// --- Pengaturan Wi-Fi Access Point ---
+// --- 1. Konfigurasi Wi-Fi Internet (Station Mode untuk HTTPS ke Vercel) ---
+// Masukkan nama Wi-Fi dan kata sandi router/tethering HP yang tersambung ke Internet
+const char* sta_ssid = "NAMA_WIFI_INTERNET";       // Ganti dengan SSID Wi-Fi / Hotspot Internet Anda
+const char* sta_password = "PASSWORD_WIFI";        // Ganti dengan Password Wi-Fi Internet Anda
+
+// --- 2. URL Endpoint Server Vercel HTTPS & Identitas IoT BEMS ---
+// Placeholder URL server Vercel online BEMS Polresta Bandar Lampung
+const char* triggerUrl   = "https://bms-project-ochre.vercel.app/api/v1/emergency/trigger";
+const char* heartbeatUrl = "https://bms-project-ochre.vercel.app/api/v1/emergency/heartbeat";
+
+// Header rahasia otentikasi perangkat IoT & UID unik teller
+const char* deviceToken  = "b3m5-p0lr35t4-53cr3t-t0k3n"; // Nilai header X-Device-Token
+const char* deviceUid    = "ESP32C3-BDL-001";              // Parameter payload JSON: device_uid
+
+// --- 3. Pengaturan Wi-Fi Access Point Cadangan (Portal Darurat Offline) ---
 // Gunakan tanda strip (-) bukan underscore (_) agar 100% terbaca di semua HP Android & iPhone
 const char* ssid = "ESP32-C3-Kontrol";
 const char* password = "12345678";
@@ -193,11 +209,107 @@ void setBuzzerOutput(bool active) {
   }
 }
 
+// =========================================================================
+// TRANSMISI HTTP POST VIA HTTPS (WIFICLIENTSECURE + VERCEL SSL BYPASS)
+// =========================================================================
+bool sendEmergencyTriggerHTTPS() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠️ [HTTPS POST] Wi-Fi Station belum terhubung ke Internet! Melewatkan transmisi Vercel.");
+    return false;
+  }
+
+  Serial.println("\n🚨 [HTTPS POST] Mengirim sinyal darurat ke server Vercel...");
+
+  // Inisialisasi WiFiClientSecure
+  WiFiClientSecure* client = new WiFiClientSecure();
+  if (!client) {
+    Serial.println("❌ [HTTPS ERROR] Gagal mengalokasikan memory WiFiClientSecure!");
+    return false;
+  }
+
+  // Wajib: Menembus proteksi keamanan SSL/HTTPS Vercel tanpa verifikasi sertifikat root CA
+  client->setInsecure();
+
+  HTTPClient https;
+  https.setTimeout(10000); // 10 detik batas waktu respons
+
+  bool requestSuccess = false;
+
+  Serial.print("🌐 [TARGET URL]: ");
+  Serial.println(triggerUrl);
+
+  if (https.begin(*client, triggerUrl)) {
+    // Header rahasia otentikasi perangkat dan tipe konten JSON
+    https.addHeader("Content-Type", "application/json");
+    https.addHeader("X-Device-Token", deviceToken);
+
+    // Siapkan payload JSON berisi device_uid
+    String payload = "{\"device_uid\":\"" + String(deviceUid) + "\"}";
+
+    Serial.print("🔑 [HEADER]: X-Device-Token: ");
+    Serial.println(deviceToken);
+    Serial.print("📦 [PAYLOAD]: ");
+    Serial.println(payload);
+
+    int httpCode = https.POST(payload);
+
+    if (httpCode > 0) {
+      Serial.printf("✅ [HTTPS SUCCESS] Status Code: %d\n", httpCode);
+      String response = https.getString();
+      Serial.print("📥 [SERVER RESPONSE]: ");
+      Serial.println(response);
+      requestSuccess = (httpCode >= 200 && httpCode < 300);
+    } else {
+      Serial.printf("❌ [HTTPS ERROR] Gagal mengirim POST! Error: %s (Kode: %d)\n",
+                    https.errorToString(httpCode).c_str(), httpCode);
+    }
+
+    https.end();
+  } else {
+    Serial.println("❌ [HTTPS ERROR] Inisialisasi https.begin() gagal!");
+  }
+
+  // Bersihkan heap memory
+  delete client;
+  return requestSuccess;
+}
+
+// Pengiriman detak jantung (Heartbeat) berkala ke Vercel via HTTPS
+void sendHeartbeatHTTPS() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  WiFiClientSecure* client = new WiFiClientSecure();
+  if (!client) return;
+
+  client->setInsecure();
+
+  HTTPClient https;
+  https.setTimeout(8000);
+
+  if (https.begin(*client, heartbeatUrl)) {
+    https.addHeader("Content-Type", "application/json");
+    https.addHeader("X-Device-Token", deviceToken);
+
+    int rssi = WiFi.RSSI();
+    String payload = "{\"device_uid\":\"" + String(deviceUid) + "\",\"rssi\":" + String(rssi) + ",\"battery_level\":100}";
+
+    int httpCode = https.POST(payload);
+    if (httpCode > 0) {
+      Serial.printf("💓 [HEARTBEAT HTTPS] Sukses (Code: %d, RSSI: %d dBm)\n", httpCode, rssi);
+    } else {
+      Serial.printf("⚠️ [HEARTBEAT HTTPS] Gagal: %s (%d)\n", https.errorToString(httpCode).c_str(), httpCode);
+    }
+    https.end();
+  }
+
+  delete client;
+}
+
 void triggerAlarmAction() {
   // 1. Kunci cooldown 2.5 detik cegah false trigger
   panicCooldownTime = millis() + PANIC_COOLDOWN_MS;
 
-  // 2. Kirim sinyal USB Serial untuk Dashboard Next.js (http://localhost:3000)
+  // 2. Kirim sinyal USB Serial untuk Dashboard Next.js (http://localhost:3000 / Web Serial)
   Serial.println("PANIC:ESPC32-B");
 
   // 3. Set flag status darurat untuk Wi-Fi Web (http://192.168.4.1)
@@ -210,6 +322,9 @@ void triggerAlarmAction() {
   // 5. Nyalakan LED darurat
   digitalWrite(led1Pin, HIGH);
   digitalWrite(led2Pin, HIGH);
+
+  // 6. Transmisi sinyal darurat ke Cloud HTTPS Vercel (BEMS Polresta)
+  sendEmergencyTriggerHTTPS();
 }
 
 void resetAlarmState() {
@@ -248,26 +363,26 @@ void setup() {
   digitalWrite(led1Pin, LOW);
   digitalWrite(led2Pin, LOW);
 
-  // Inisialisasi Wi-Fi Access Point (Metode Resmi Espressif Standar & Anti-Drop)
+  // Inisialisasi Mode Wi-Fi Ganda: Station (Internet) + Access Point (Portal Darurat)
   WiFi.mode(WIFI_OFF);
   delay(100);
 
-  WiFi.mode(WIFI_AP);
-  WiFi.setSleep(false); // Pastikan radio AP memancar beacon 100% tanpa sleep
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.setSleep(false); // Pastikan radio memancar 100% tanpa sleep
 
   IPAddress local_ip(192, 168, 4, 1);
   IPAddress gateway(192, 168, 4, 1);
   IPAddress subnet(255, 255, 255, 0);
   WiFi.softAPConfig(local_ip, gateway, subnet);
 
-  // Nyalakan Access Point (Channel 1 untuk kompatibilitas universal semua merk HP)
+  // Nyalakan Access Point Lokal (Channel 1 untuk kompatibilitas universal semua HP)
   bool apSuccess = WiFi.softAP(ssid, password, 1, 0, 4);
   if (!apSuccess) {
     // Fallback: Jika chip menolak enkripsi kata sandi, aktifkan mode Terbuka (Open)
     apSuccess = WiFi.softAP(ssid, NULL, 1, 0, 4);
   }
 
-  // Atur TX Power ke 76 (~19 dBm) agar sinyal kuat menembus casing dan ditangkap antena HP
+  // Atur TX Power ke 76 (~19 dBm) agar sinyal kuat menembus casing
   esp_wifi_set_max_tx_power(76);
   esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
 
@@ -282,13 +397,39 @@ void setup() {
   Serial.println("  BEMS ESP32-C3 SMART MONITORING          ");
   Serial.println("  POLRESTA BANDAR LAMPUNG                 ");
   Serial.println("==========================================");
-  Serial.print("🟢 Status Wi-Fi AP:   "); Serial.println(apSuccess ? "MEMANCARKAN SINYAL (AKTIF)" : "GAGAL");
-  Serial.print("📶 Nama SSID Wi-Fi:   "); Serial.println(ssid);
-  Serial.print("🔑 Kata Sandi:        "); Serial.println(password);
-  Serial.print("🌐 Alamat IP Web:     http://"); Serial.println(WiFi.softAPIP());
-  Serial.println("🌐 Alamat Alternatif: http://bems.local");
-  Serial.println("⚡ Serial Protocol:    ESPC32-B");
+  Serial.print("🟢 Status Wi-Fi AP:    "); Serial.println(apSuccess ? "MEMANCARKAN SINYAL (AKTIF)" : "GAGAL");
+  Serial.print("📶 Nama SSID AP Lokal: "); Serial.println(ssid);
+  Serial.print("🔑 Kata Sandi AP:      "); Serial.println(password);
+  Serial.print("🌐 Alamat IP Web AP:   http://"); Serial.println(WiFi.softAPIP());
+  Serial.println("🌐 Alamat Alternatif:  http://bems.local");
+  Serial.print("🚀 Target HTTPS Cloud: "); Serial.println(triggerUrl);
+  Serial.print("🆔 Device UID:         "); Serial.println(deviceUid);
+  Serial.print("🔑 Secret Auth Token:  "); Serial.println(deviceToken);
+  Serial.println("⚡ Serial Protocol:     ESPC32-B");
   Serial.println("==========================================");
+
+  // Hubungkan ke Wi-Fi Internet untuk transmisi HTTPS Vercel
+  if (strlen(sta_ssid) > 0 && strcmp(sta_ssid, "NAMA_WIFI_INTERNET") != 0) {
+    Serial.print("📶 Menghubungkan ke Wi-Fi Internet: ");
+    Serial.println(sta_ssid);
+    WiFi.begin(sta_ssid, sta_password);
+
+    unsigned long wifiStart = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 5000) {
+      delay(250);
+      Serial.print(".");
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("\n✅ [WI-FI TERHUBUNG] Siap mengirim HTTPS ke Vercel!");
+      Serial.print("   IP Lokal Station: "); Serial.println(WiFi.localIP());
+      Serial.print("   Kekuatan Sinyal (RSSI): "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
+    } else {
+      Serial.println("\n⚠️ [WI-FI STATION] Belum terhubung (akan mencoba reconnect di background).");
+    }
+  } else {
+    Serial.println("ℹ️ [INFO] sta_ssid masih default. Ubah variabel sta_ssid & sta_password untuk mengaktifkan koneksi internet.");
+  }
 
   // Routing HTTP Server (Dilengkapi header anti-cache agar peramban HP tidak menampilkan versi lama)
   server.on("/", HTTP_GET, []() {
@@ -408,7 +549,7 @@ void loop() {
 
         // Terdeteksi ditekan (Aktif LOW)
         if (buttonState == LOW) {
-          Serial.println(">> [TOMBOL FISIK DITEKAN!] Memproses Alarm...");
+          Serial.println(">> [TOMBOL FISIK DITEKAN!] Memproses Alarm & Mengirim HTTPS...");
           triggerAlarmAction();
         } else {
           // Tombol dilepas: matikan LED jika status toggle web sedang mati
@@ -432,5 +573,22 @@ void loop() {
   if (now - lastHeartbeat >= 5000) {
     lastHeartbeat = now;
     Serial.println("HEARTBEAT:ESPC32-B");
+  }
+
+  // --- 4. AUTO-RECONNECT WI-FI INTERNET ---
+  static unsigned long lastWifiCheck = 0;
+  if (now - lastWifiCheck >= 15000) {
+    lastWifiCheck = now;
+    if (WiFi.status() != WL_CONNECTED && strlen(sta_ssid) > 0 && strcmp(sta_ssid, "NAMA_WIFI_INTERNET") != 0) {
+      Serial.println("🔄 [Wi-Fi] Mencoba menyambung kembali ke internet...");
+      WiFi.reconnect();
+    }
+  }
+
+  // --- 5. HEARTBEAT PERIODIK KE VERCEL HTTPS (TIAP 60 DETIK) ---
+  static unsigned long lastHttpsHeartbeat = 0;
+  if (now - lastHttpsHeartbeat >= 60000) {
+    lastHttpsHeartbeat = now;
+    sendHeartbeatHTTPS();
   }
 }
