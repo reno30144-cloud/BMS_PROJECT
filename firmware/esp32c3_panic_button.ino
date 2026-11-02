@@ -10,6 +10,7 @@
 // =========================================================================
 // BEMS POLRESTA BANDAR LAMPUNG - TRIPLE MODE (HTTPS CLOUD + USB + WI-FI AP)
 // Perangkat: ESP32-C3 SuperMini / DevKit
+// Lokasi / Unit: Tripanca
 // Pinout Sesuai Board Anda:
 //   - Tombol Fisik:  GPIO 1 (INPUT_PULLUP)
 //   - LED 1:         GPIO 0 (OUTPUT)
@@ -18,12 +19,16 @@
 // =========================================================================
 
 // --- 1. Konfigurasi Wi-Fi Internet (Station Mode untuk HTTPS ke Vercel) ---
-// Masukkan nama Wi-Fi dan kata sandi router/tethering HP yang tersambung ke Internet
-const char* sta_ssid = "NAMA_WIFI_INTERNET";       // Ganti dengan SSID Wi-Fi / Hotspot Internet Anda
-const char* sta_password = "PASSWORD_WIFI";        // Ganti dengan Password Wi-Fi Internet Anda
+// Sesuai data Wi-Fi Anda (Nama: Tripanca, SSID / Sandi: tiwulaja)
+// Sistem dilengkapi deteksi otomatis untuk kombinasi SSID & Password
+const char* sta_ssid_primary   = "Tripanca";
+const char* sta_pass_primary   = "tiwulaja";
+
+const char* sta_ssid_secondary = "tiwulaja";
+const char* sta_pass_secondary = "Tripanca";
 
 // --- 2. URL Endpoint Server Vercel HTTPS & Identitas IoT BEMS ---
-// Placeholder URL server Vercel online BEMS Polresta Bandar Lampung
+// Domain Vercel resmi sistem BEMS Polresta Bandar Lampung
 const char* triggerUrl   = "https://bms-project-ochre.vercel.app/api/v1/emergency/trigger";
 const char* heartbeatUrl = "https://bms-project-ochre.vercel.app/api/v1/emergency/heartbeat";
 
@@ -33,7 +38,7 @@ const char* deviceUid    = "ESP32C3-BDL-001";              // Parameter payload 
 
 // --- 3. Pengaturan Wi-Fi Access Point Cadangan (Portal Darurat Offline) ---
 // Gunakan tanda strip (-) bukan underscore (_) agar 100% terbaca di semua HP Android & iPhone
-const char* ssid = "ESP32-C3-Kontrol";
+const char* ssid = "ESP32-Tripanca";
 const char* password = "12345678";
 
 // --- Penataan Pin Hardware ---
@@ -82,7 +87,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BEMS Panic Button</title>
+    <title>BEMS Panic Button - Tripanca</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: #070d1e; color: #ffffff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
@@ -142,7 +147,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
         <img src="/logo.jpg" alt="Logo Siger Polresta" class="siger-logo">
         <div id="badgeStatus" class="badge">🟢 SIAGA TERHUBUNG</div>
         <h1>BEMS PANIC BUTTON</h1>
-        <p class="sub">Bank Mandiri KCP Kartini • Polresta Balam</p>
+        <p class="sub">Tripanca • Polresta Bandar Lampung</p>
     </div>
 
     <div class="panic-wrapper">
@@ -347,6 +352,73 @@ void sendStatusJSON() {
 }
 
 // =========================================================================
+// HELPER KONEKSI WI-FI INTERNET CERDAS (MULTI-KREDENSIAL / AUTO SCAN)
+// =========================================================================
+void connectToInternetWiFi() {
+  Serial.println("\n🔍 [WI-FI SCAN] Memindai jaringan Wi-Fi sekitar...");
+  int n = WiFi.scanNetworks();
+  bool foundTripanca = false;
+  bool foundTiwulaja = false;
+
+  for (int i = 0; i < n; ++i) {
+    String netName = WiFi.SSID(i);
+    netName.toLowerCase();
+    if (netName.indexOf("tripanca") >= 0) foundTripanca = true;
+    if (netName.indexOf("tiwulaja") >= 0) foundTiwulaja = true;
+  }
+
+  const char* targetSSID = sta_ssid_primary;
+  const char* targetPass = sta_pass_primary;
+
+  if (foundTiwulaja && !foundTripanca) {
+    Serial.println("🎯 [WI-FI SCAN] Jaringan 'tiwulaja' terdeteksi aktif!");
+    targetSSID = sta_ssid_secondary;
+    targetPass = sta_pass_secondary;
+  } else if (foundTripanca) {
+    Serial.println("🎯 [WI-FI SCAN] Jaringan 'Tripanca' terdeteksi aktif!");
+    targetSSID = sta_ssid_primary;
+    targetPass = sta_pass_primary;
+  } else {
+    Serial.println("ℹ️ [WI-FI SCAN] Mencoba kredensial primer (Tripanca / tiwulaja)...");
+  }
+
+  Serial.printf("📶 Menyambungkan ke Wi-Fi: %s ...\n", targetSSID);
+  WiFi.begin(targetSSID, targetPass);
+
+  unsigned long wifiStart = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 6000) {
+    delay(250);
+    Serial.print(".");
+  }
+
+  // Jika belum tersambung, coba permutasi kedua secara otomatis
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("\n🔄 Mencoba kombinasi alternatif...");
+    const char* altSSID = (strcmp(targetSSID, "Tripanca") == 0) ? "tiwulaja" : "Tripanca";
+    const char* altPass = (strcmp(targetPass, "tiwulaja") == 0) ? "Tripanca" : "tiwulaja";
+
+    WiFi.disconnect();
+    delay(200);
+    WiFi.begin(altSSID, altPass);
+
+    wifiStart = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 6000) {
+      delay(250);
+      Serial.print(".");
+    }
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n✅ [WI-FI TERHUBUNG!] Siap mengirim sinyal darurat HTTPS ke Vercel.");
+    Serial.print("   SSID Terhubung:        "); Serial.println(WiFi.SSID());
+    Serial.print("   IP Lokal Station:      "); Serial.println(WiFi.localIP());
+    Serial.print("   Kekuatan Sinyal (RSSI): "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
+  } else {
+    Serial.println("\n⚠️ [WI-FI] Belum berhasil tersambung. Reconnect otomatis akan terus mencoba di background.");
+  }
+}
+
+// =========================================================================
 // SETUP
 // =========================================================================
 void setup() {
@@ -396,6 +468,7 @@ void setup() {
   Serial.println("\n==========================================");
   Serial.println("  BEMS ESP32-C3 SMART MONITORING          ");
   Serial.println("  POLRESTA BANDAR LAMPUNG                 ");
+  Serial.println("  Unit / Lokasi: Tripanca                 ");
   Serial.println("==========================================");
   Serial.print("🟢 Status Wi-Fi AP:    "); Serial.println(apSuccess ? "MEMANCARKAN SINYAL (AKTIF)" : "GAGAL");
   Serial.print("📶 Nama SSID AP Lokal: "); Serial.println(ssid);
@@ -408,28 +481,8 @@ void setup() {
   Serial.println("⚡ Serial Protocol:     ESPC32-B");
   Serial.println("==========================================");
 
-  // Hubungkan ke Wi-Fi Internet untuk transmisi HTTPS Vercel
-  if (strlen(sta_ssid) > 0 && strcmp(sta_ssid, "NAMA_WIFI_INTERNET") != 0) {
-    Serial.print("📶 Menghubungkan ke Wi-Fi Internet: ");
-    Serial.println(sta_ssid);
-    WiFi.begin(sta_ssid, sta_password);
-
-    unsigned long wifiStart = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 5000) {
-      delay(250);
-      Serial.print(".");
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.println("\n✅ [WI-FI TERHUBUNG] Siap mengirim HTTPS ke Vercel!");
-      Serial.print("   IP Lokal Station: "); Serial.println(WiFi.localIP());
-      Serial.print("   Kekuatan Sinyal (RSSI): "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
-    } else {
-      Serial.println("\n⚠️ [WI-FI STATION] Belum terhubung (akan mencoba reconnect di background).");
-    }
-  } else {
-    Serial.println("ℹ️ [INFO] sta_ssid masih default. Ubah variabel sta_ssid & sta_password untuk mengaktifkan koneksi internet.");
-  }
+  // Hubungkan ke Wi-Fi Internet Tripanca / tiwulaja
+  connectToInternetWiFi();
 
   // Routing HTTP Server (Dilengkapi header anti-cache agar peramban HP tidak menampilkan versi lama)
   server.on("/", HTTP_GET, []() {
@@ -579,8 +632,8 @@ void loop() {
   static unsigned long lastWifiCheck = 0;
   if (now - lastWifiCheck >= 15000) {
     lastWifiCheck = now;
-    if (WiFi.status() != WL_CONNECTED && strlen(sta_ssid) > 0 && strcmp(sta_ssid, "NAMA_WIFI_INTERNET") != 0) {
-      Serial.println("🔄 [Wi-Fi] Mencoba menyambung kembali ke internet...");
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("🔄 [Wi-Fi] Terputus. Menghubungkan ulang...");
       WiFi.reconnect();
     }
   }
