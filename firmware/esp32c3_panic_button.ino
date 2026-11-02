@@ -40,10 +40,11 @@ const char* ssid = "ESP32-Tripanca";
 const char* password = "12345678";
 
 // --- Penataan Pin Hardware ---
-const int buttonPin = 1;  // Tombol Fisik (GPIO 1)
-const int led1Pin = 0;    // LED 1 (GPIO 0)
-const int led2Pin = 4;    // LED 2 (GPIO 4)
-const int buzzerPin = 2;  // Buzzer (GPIO 2)
+const int buttonPin = 1;       // Tombol Fisik Eksternal (GPIO 1)
+const int bootButtonPin = 9;   // Tombol On-Board BOOT pada modul ESP32-C3 (GPIO 9)
+const int led1Pin = 0;         // LED 1 (GPIO 0)
+const int led2Pin = 4;         // LED 2 (GPIO 4)
+const int buzzerPin = 2;       // Buzzer (GPIO 2)
 
 // Set ke true jika buzzer aktif saat HIGH. Ubah ke false jika Active-LOW.
 const bool BUZZER_ACTIVE_HIGH = true;
@@ -61,15 +62,15 @@ int statusLed2 = 0;
 int statusBuzzer = 0;
 bool isPanicTriggered = false;
 
-// Filter Debounce & Anti-Noise Tombol
+// Filter Debounce & Anti-Noise Tombol (Peka & Cepat 25ms)
 int buttonState = HIGH;
 int lastReading = HIGH;
 unsigned long lastDebounceTime = 0;
-const unsigned long DEBOUNCE_DELAY = 80; // Wajib stabil 80ms cegah false-trigger
+const unsigned long DEBOUNCE_DELAY = 25; // 25ms sangat responsif tanpa delay lambat
 
-// Cooldown Lock: Mencegah feedback loop dari suara buzzer yang memicu tombol secara berulang
+// Cooldown Lock: Mencegah trigger bertubi-tubi saat kepanikan
 unsigned long panicCooldownTime = 0;
-const unsigned long PANIC_COOLDOWN_MS = 2500; // Kunci 2.5 detik agar bebas dari induksi buzzer/noise
+const unsigned long PANIC_COOLDOWN_MS = 1500; // Kunci 1.5 detik per penekanan alarm
 
 unsigned long buzzerOffTime = 0;
 bool isBuzzerBeeping = false;
@@ -218,10 +219,10 @@ void setBuzzerOutput(bool active) {
 // =========================================================================
 bool sendEmergencyTriggerHTTPS() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠️ [HTTPS POST] Wi-Fi belum tersambung. Mencoba menyambung cepat (3 detik)...");
-    WiFi.reconnect();
+    Serial.println("⚠️ [HTTPS POST] Wi-Fi belum tersambung. Menginisiasi koneksi ke Tripanca (4 detik)...");
+    WiFi.begin(sta_ssid, sta_password);
     unsigned long t0 = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 3500) {
+    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 4500) {
       delay(200);
       Serial.print(".");
     }
@@ -456,7 +457,8 @@ void setup() {
   Serial.begin(115200);
 
   // Setup Pin Hardware
-  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(buttonPin, INPUT_PULLUP);      // GPIO 1 (Tombol Eksternal)
+  pinMode(bootButtonPin, INPUT_PULLUP);  // GPIO 9 (Tombol On-Board BOOT ESP32-C3)
   pinMode(led1Pin, OUTPUT);
   pinMode(led2Pin, OUTPUT);
   setBuzzerOutput(false); // Pastikan buzzer diam total (High-Z)
@@ -613,9 +615,13 @@ void loop() {
     }
   }
 
-  // --- 1. FILTER ANTI-NOISE TOMBOL FISIK (GPIO 1) ---
+  // --- 1. DETEKSI DUAL TOMBOL FISIK (GPIO 1 Eksternal ATAU GPIO 9 On-Board BOOT) ---
   if (now >= panicCooldownTime) {
-    int reading = digitalRead(buttonPin);
+    int readExt = digitalRead(buttonPin);
+    int readBoot = digitalRead(bootButtonPin);
+
+    // Aktif jika salah satu tombol ditekan (Active LOW)
+    int reading = (readExt == LOW || readBoot == LOW) ? LOW : HIGH;
 
     if (reading != lastReading) {
       lastDebounceTime = now;
@@ -627,7 +633,14 @@ void loop() {
 
         // Terdeteksi ditekan (Aktif LOW)
         if (buttonState == LOW) {
-          Serial.println(">> [TOMBOL FISIK DITEKAN!] Memproses Alarm & Mengirim HTTPS...");
+          Serial.println("\n🔥 [TOMBOL FISIK DITEKAN!] Tombol terdeteksi aktif.");
+          if (readExt == LOW) Serial.println("   -> Pemicu: GPIO 1 (Tombol Eksternal)");
+          if (readBoot == LOW) Serial.println("   -> Pemicu: GPIO 9 (Tombol On-Board BOOT)");
+
+          // Nyalakan LED langsung sebagai umpan balik fisik seketika
+          digitalWrite(led1Pin, HIGH);
+          digitalWrite(led2Pin, HIGH);
+
           triggerAlarmAction();
         } else {
           if (!statusLed1) digitalWrite(led1Pin, LOW);
