@@ -179,13 +179,16 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Supabase Realtime WebSocket subscription
+  // Supabase Realtime WebSocket subscription & Periodik Polling
   useEffect(() => {
     fetchStatus();
 
+    // 1. WebSocket Realtime Supabase (untuk update sub-detik jika didukung)
     const client = supabase;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let channel: any = null;
     if (isSupabaseConfigured && client) {
-      const channel = client
+      channel = client
         .channel('realtime:devices_and_logs')
         .on(
           'postgres_changes',
@@ -209,15 +212,17 @@ export default function DashboardPage() {
           }
         )
         .subscribe();
-
-      return () => {
-        client.removeChannel(channel);
-      };
-    } else {
-      // Fallback polling interval 1.5s jika realtime belum terhubung
-      const interval = setInterval(fetchStatus, 1500);
-      return () => clearInterval(interval);
     }
+
+    // 2. Polling periodik 1.5 detik (Wajib berjalan terus agar status offline akurat seketika saat alat dicabut)
+    const pollInterval = setInterval(fetchStatus, 1500);
+
+    return () => {
+      if (channel && client) {
+        client.removeChannel(channel);
+      }
+      clearInterval(pollInterval);
+    };
   }, [fetchStatus]);
 
   // Audio siren trigger management: Berbunyi terus-menerus selagi masih ada bank berstatus darurat

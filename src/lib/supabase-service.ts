@@ -156,27 +156,38 @@ export async function recordHeartbeatWithFallback(deviceUid: string, rssi?: numb
     const nowIso = new Date().toISOString();
     let { data: dev } = await supabaseAdmin
       .from('devices')
-      .select('id')
+      .select('id, status')
       .ilike('device_uid', deviceUid)
       .maybeSingle();
 
     if (!dev) {
       const { data: firstDev } = await supabaseAdmin
         .from('devices')
-        .select('id')
+        .select('id, status')
         .limit(1)
         .maybeSingle();
       dev = firstDev;
     }
 
     if (dev) {
+      const updatePayload: {
+        last_heartbeat_at: string;
+        updated_at: string;
+        status?: 'STANDBY' | 'TRIGGERED';
+      } = {
+        last_heartbeat_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      // Jangan timpa status jika perangkat sedang dalam keadaan bahaya (TRIGGERED)
+      // Status TRIGGERED hanya boleh diubah kembali ke STANDBY oleh Admin SPKT di Web
+      if (dev.status !== 'TRIGGERED') {
+        updatePayload.status = 'STANDBY';
+      }
+
       await supabaseAdmin
         .from('devices')
-        .update({
-          last_heartbeat_at: nowIso,
-          updated_at: nowIso,
-          status: 'STANDBY',
-        })
+        .update(updatePayload)
         .eq('id', dev.id);
     }
 
