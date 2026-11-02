@@ -373,37 +373,50 @@ void sendStatusJSON() {
 }
 
 // =========================================================================
-// HELPER KONEKSI WI-FI INTERNET (SSID: Tripanca, SANDI: tieulaja)
+// HELPER KONEKSI WI-FI INTERNET KANTOR (AUTO SCAN SUBSTRING & DIAGNOSTIK LENGKAP)
 // =========================================================================
 void connectToInternetWiFi() {
   Serial.println("\n==========================================");
-  Serial.println("🌐 [WI-FI] Memindai & Menghubungkan ke Internet");
-  Serial.printf("📶 Target SSID: '%s'\n", sta_ssid);
-  Serial.printf("🔑 Kata Sandi : '%s'\n", sta_password);
+  Serial.println("🌐 [WI-FI KANTOR] Memindai & Mendiagnosis Sinyal");
+  Serial.printf("📶 Target SSID : '%s'\n", sta_ssid);
+  Serial.printf("🔑 Kata Sandi  : '%s'\n", sta_password);
+  Serial.printf("📡 MAC Address : %s\n", WiFi.macAddress().c_str());
   Serial.println("==========================================");
 
-  // Pindai sinyal sekitar terlebih dahulu
+  // 1. Pindai seluruh jaringan Wi-Fi 2.4 GHz di sekitar
+  Serial.println("🔍 Memindai sinyal Wi-Fi di sekitar board...");
   int n = WiFi.scanNetworks();
   String matchedSSID = sta_ssid;
   bool found = false;
 
+  Serial.printf("📋 Ditemukan %d jaringan Wi-Fi:\n", n);
   for (int i = 0; i < n; i++) {
-    if (WiFi.SSID(i).equalsIgnoreCase("tripanca")) {
-      matchedSSID = WiFi.SSID(i);
+    String currentSSID = WiFi.SSID(i);
+    String lower = currentSSID;
+    lower.toLowerCase();
+
+    Serial.printf("   [%d] '%s' (Kekuatan: %d dBm, Ch: %d) %s\n",
+                  i + 1,
+                  currentSSID.c_str(),
+                  WiFi.RSSI(i),
+                  WiFi.channel(i),
+                  (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "[Terbuka/No Pass]" : "[Terkunci]");
+
+    // Cocokkan jika nama mengandung kata 'tripanca' (tidak peka huruf besar/kecil)
+    if (!found && lower.indexOf("tripanca") >= 0) {
+      matchedSSID = currentSSID;
       found = true;
-      Serial.printf("🎯 [DITEMUKAN] Sinyal '%s' terdeteksi! (Kekuatan: %d dBm, Channel: %d)\n",
-                    matchedSSID.c_str(), WiFi.RSSI(i), WiFi.channel(i));
-      break;
     }
   }
 
-  if (!found) {
-    Serial.println("⚠️ Wi-Fi 'Tripanca' belum terdeteksi di pemindaian 2.4 GHz.");
-    Serial.println("   Mencoba tetap menyambung ke SSID default 'Tripanca'...");
+  if (found) {
+    Serial.printf("\n🎯 [OTOMATIS COCOK] Menggunakan SSID Kantor Terdeteksi: '%s'\n", matchedSSID.c_str());
+  } else {
+    Serial.println("\n⚠️ Sinyal mengandung 'Tripanca' belum terlihat di 2.4 GHz. Mencoba tetap menyambung...");
   }
 
-  // Percobaan 1: Sandi resmi yang diinput user ("tieulaja")
-  Serial.printf("🔑 Mencoba sandi '%s' ke '%s'...\n", sta_password, matchedSSID.c_str());
+  // 2. Percobaan 1: Sandi resmi yang diinputkan ("tieulaja")
+  Serial.printf("🔑 [1/3] Menghubungkan ke '%s' dengan sandi '%s'...\n", matchedSSID.c_str(), sta_password);
   WiFi.begin(matchedSSID.c_str(), sta_password);
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < 8000) {
@@ -411,9 +424,9 @@ void connectToInternetWiFi() {
     Serial.print(".");
   }
 
-  // Percobaan 2: Variasi 'tiwulaja'
+  // 3. Percobaan 2: Variasi 'tiwulaja'
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n⚠️ Belum tersambung dengan 'tieulaja'. Mencoba sandi 'tiwulaja'...");
+    Serial.println("\n⚠️ [2/3] Mencoba variasi sandi 'tiwulaja'...");
     WiFi.disconnect();
     delay(200);
     WiFi.begin(matchedSSID.c_str(), "tiwulaja");
@@ -424,9 +437,9 @@ void connectToInternetWiFi() {
     }
   }
 
-  // Percobaan 3: Variasi 'tiwul ajah'
+  // 4. Percobaan 3: Variasi 'tiwul ajah'
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n⚠️ Mencoba sandi 'tiwul ajah'...");
+    Serial.println("\n⚠️ [3/3] Mencoba variasi sandi 'tiwul ajah'...");
     WiFi.disconnect();
     delay(200);
     WiFi.begin(matchedSSID.c_str(), "tiwul ajah");
@@ -437,11 +450,13 @@ void connectToInternetWiFi() {
     }
   }
 
+  // 5. Evaluasi Hasil Akhir
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n\n🎉 ==========================================");
-    Serial.println("✅ [WI-FI BERHASIL TERHUBUNG!]");
+    Serial.println("✅ [BERHASIL TERHUBUNG KE WI-FI KANTOR!]");
     Serial.printf("   SSID Aktif     : %s\n", WiFi.SSID().c_str());
-    Serial.printf("   IP ESP32       : %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("   IP Lokal ESP32 : %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("   Gateway Router : %s\n", WiFi.gatewayIP().toString().c_str());
     Serial.printf("   Kekuatan (RSSI): %d dBm\n", WiFi.RSSI());
     Serial.println("==========================================");
 
@@ -454,9 +469,24 @@ void connectToInternetWiFi() {
     Serial.println("📡 Mengirim status STANDBY ke Vercel sekarang...");
     sendHeartbeatHTTPS();
   } else {
-    Serial.println("\n❌ Wi-Fi belum tersambung.");
-    Serial.println("   -> Jika memakai Hotspot HP: Pastikan pita disetel ke 2.4 GHz (ESP32 tidak bisa 5 GHz).");
-    Serial.println("   -> Reconnect otomatis akan terus mencoba di background.");
+    wl_status_t st = WiFi.status();
+    Serial.println("\n\n❌ [GAGAL MENYAMBUNG KE WI-FI KANTOR]");
+    Serial.print("   Penyebab: ");
+    switch (st) {
+      case WL_NO_SSID_AVAIL:
+        Serial.println("SSID tidak ditemukan (Router mungkin 5 GHz saja atau di luar jangkauan)");
+        break;
+      case WL_CONNECT_FAILED:
+        Serial.println("Kata sandi ditolak router / handshake gagal");
+        break;
+      case WL_DISCONNECTED:
+        Serial.println("Terputus dari router (mungkin ada proteksi portal web / MAC filter kantor)");
+        break;
+      default:
+        Serial.printf("Kode status Wi-Fi: %d\n", (int)st);
+        break;
+    }
+    Serial.println("   Sistem akan terus mencoba reconnect otomatis di background.");
   }
 }
 
