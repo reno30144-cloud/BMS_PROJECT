@@ -60,9 +60,9 @@ int lastReading = HIGH;
 unsigned long lastDebounceTime = 0;
 const unsigned long DEBOUNCE_DELAY = 25;
 
-// Cooldown Lock: Mencegah trigger bertubi-tubi
+// Cooldown Lock: Mencegah trigger bertubi-tubi (3.5 detik)
 unsigned long panicCooldownTime = 0;
-const unsigned long PANIC_COOLDOWN_MS = 1500;
+const unsigned long PANIC_COOLDOWN_MS = 3500;
 
 unsigned long buzzerOffTime = 0;
 bool isBuzzerBeeping = false;

@@ -67,31 +67,32 @@ class DeviceStore {
     }
 
     const device = this.devices[idx];
-    const nowIso = new Date().toISOString();
-
     const isAlreadyTriggered = device.status === 'TRIGGERED';
     const hasUnresolvedLog = this.logs.some(
       (l) => l.deviceId === device.id && !l.resolvedAt
     );
 
+    // Jika perangkat sudah berstatus darurat atau memiliki log belum selesai, cegah duplikasi event
+    if (isAlreadyTriggered || hasUnresolvedLog) {
+      return { success: true, device, message: 'Status bahaya sudah aktif.' };
+    }
+
+    const nowIso = new Date().toISOString();
     const updatedDevice: Device = {
       ...device,
       status: 'TRIGGERED',
-      lastTriggeredAt: isAlreadyTriggered ? device.lastTriggeredAt : nowIso,
+      lastTriggeredAt: nowIso,
     };
 
     this.devices[idx] = updatedDevice;
 
-    // Cegah log duplikat jika perangkat sudah berstatus darurat dan belum di-reset
-    if (!hasUnresolvedLog && !isAlreadyTriggered) {
-      this.logs.unshift({
-        id: `log-${Date.now()}`,
-        deviceId: device.id,
-        bankName: device.bank.name,
-        branchName: device.bank.branchName,
-        triggeredAt: nowIso,
-      });
-    }
+    this.logs.unshift({
+      id: `log-${Date.now()}`,
+      deviceId: device.id,
+      bankName: device.bank.name,
+      branchName: device.bank.branchName,
+      triggeredAt: nowIso,
+    });
 
     this.notify();
     return { success: true, device: updatedDevice, message: 'Status bahaya berhasil dipicu.' };

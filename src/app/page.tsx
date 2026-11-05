@@ -38,6 +38,7 @@ export default function DashboardPage() {
   const [emergencyAlertTargetDevice, setEmergencyAlertTargetDevice] = useState<Device | null>(null);
   const [isEmergencyAlertOpen, setIsEmergencyAlertOpen] = useState(false);
   const [lastAlertedTriggerTime, setLastAlertedTriggerTime] = useState<string | null>(null);
+  const [dismissedIncidentTime, setDismissedIncidentTime] = useState<string | null>(null);
 
   // Kunci Status Darurat Aktif: Sirine TIDAK AKAN PERNAH BERHENTI sebelum admin menekan Reset
   const [activeEmergencyUids, setActiveEmergencyUids] = useState<string[]>([]);
@@ -258,9 +259,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const triggeredDev = devices.find((d) => d.status === 'TRIGGERED');
     if (triggeredDev) {
-      const triggerTime = triggeredDev.lastTriggeredAt || (triggeredDev as any).updatedAt || 'triggered-event';
-      // Hanya buka jika modal belum terbuka atau target darurat berganti perangkat (mencegah popup muncul dua kali/flicker)
-      if (!isEmergencyAlertOpen || emergencyAlertTargetDevice?.deviceUid.toLowerCase() !== triggeredDev.deviceUid.toLowerCase()) {
+      const triggerTime = triggeredDev.lastTriggeredAt || (triggeredDev as any).updatedAt || `${triggeredDev.deviceUid}-active`;
+      // Buka modal hanya jika belum pernah dibuka untuk insiden ini dan belum ditutup manual oleh user
+      if (triggerTime !== lastAlertedTriggerTime && triggerTime !== dismissedIncidentTime) {
         setEmergencyAlertTargetDevice(triggeredDev);
         setIsEmergencyAlertOpen(true);
         setLastAlertedTriggerTime(triggerTime);
@@ -268,14 +269,13 @@ export default function DashboardPage() {
     } else {
       // Jika TIDAK ADA perangkat yang berstatus TRIGGERED (karena sudah diselesaikan oleh admin/polsek manapun)
       // Otomatis tutup popup darurat di semua layar client
-      if (isEmergencyAlertOpen) {
-        setIsEmergencyAlertOpen(false);
-        setEmergencyAlertTargetDevice(null);
-        setResetTargetDevice(null);
-        setLastAlertedTriggerTime(null);
-      }
+      setIsEmergencyAlertOpen(false);
+      setEmergencyAlertTargetDevice(null);
+      setResetTargetDevice(null);
+      setLastAlertedTriggerTime(null);
+      setDismissedIncidentTime(null);
     }
-  }, [devices, isEmergencyAlertOpen, emergencyAlertTargetDevice]);
+  }, [devices, lastAlertedTriggerTime, dismissedIncidentTime]);
 
   // Handle Trigger from Simulator, Card button, or USB Serial
   const handleTriggerEmergency = async (deviceUid: string): Promise<number> => {
@@ -374,23 +374,23 @@ export default function DashboardPage() {
           if (streamBuffer.length > 500) streamBuffer = streamBuffer.slice(-200);
 
           const upper = streamBuffer.toUpperCase();
-          // Filter ketat pemicu tombol darurat: cegah false alarm dari teks boot
+          // Filter ketat pemicu tombol darurat: HANYA pemicu protokol resmi (cegah false trigger ganda)
           const isTrigger =
-            upper.includes('PANIC:ESPC32-B') ||
             upper.includes('PANIC:') ||
-            upper.includes('[TOMBOL FISIK DITEKAN!]') ||
             upper.includes('TRIGGER:');
 
           if (isTrigger) {
             const match = streamBuffer.match(/PANIC:([A-Za-z0-9_-]+)/i) || streamBuffer.match(/TRIGGER:([A-Za-z0-9_-]+)/i);
-            const targetUid = match ? match[1].trim() : 'ESPC32-B';
-            streamBuffer = '';
+            if (match) {
+              const targetUid = match[1].trim();
+              streamBuffer = '';
 
-            setUsbButtonCount((prev) => prev + 1);
-            setUsbFeedbackStatus('SUCCESS');
+              setUsbButtonCount((prev) => prev + 1);
+              setUsbFeedbackStatus('SUCCESS');
 
-            // LANGSUNG PICU POPUP MERAH KE LAYAR SEKETIKA (0 MILIDETIK)
-            handleTriggerEmergency(targetUid);
+              // LANGSUNG PICU POPUP MERAH KE LAYAR SEKETIKA (0 MILIDETIK)
+              handleTriggerEmergency(targetUid);
+            }
           } else if (upper.includes('RESET:')) {
             streamBuffer = '';
           } else if (upper.includes('HEARTBEAT:')) {
@@ -1111,11 +1111,6 @@ export default function DashboardPage() {
         onClose={() => setIsSimulatorOpen(false)}
         onTrigger={handleTriggerEmergency}
         onHeartbeat={handleHeartbeat}
-        onEmergencyTriggered={(device) => {
-          setIsSimulatorOpen(false); // Sembunyikan simulator secara bersih
-          setEmergencyAlertTargetDevice(device);
-          setIsEmergencyAlertOpen(true);
-        }}
         isUsbConnected={isUsbConnected}
         onConnectUsb={handleConnectUsbGlobal}
         buttonCount={usbButtonCount}
@@ -1141,7 +1136,14 @@ export default function DashboardPage() {
       <EmergencyAlertModal
         device={emergencyAlertTargetDevice}
         isOpen={isEmergencyAlertOpen}
-        onClose={() => setIsEmergencyAlertOpen(false)}
+        onClose={() => {
+          setIsEmergencyAlertOpen(false);
+          const currentTriggerTime =
+            emergencyAlertTargetDevice?.lastTriggeredAt ||
+            (emergencyAlertTargetDevice as any)?.updatedAt ||
+            `${emergencyAlertTargetDevice?.deviceUid}-active`;
+          setDismissedIncidentTime(currentTriggerTime);
+        }}
         onOpenReset={(d) => {
           setIsEmergencyAlertOpen(false);
           setResetTargetDevice(d);

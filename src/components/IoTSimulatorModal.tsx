@@ -55,11 +55,8 @@ export const IoTSimulatorModal: React.FC<IoTSimulatorModalProps> = ({
     setIsLoading(true);
     setLogMessage(`Mengirim payload darurat HTTP POST untuk ${selectedUid}...`);
 
-    // Langsung tutup simulator dan munculkan Popup Merah seketika
+    // Langsung tutup simulator dan picu trigger darurat
     onClose();
-    if (currentDevice && onEmergencyTriggered) {
-      onEmergencyTriggered(currentDevice);
-    }
 
     try {
       const latencyMs = await onTrigger(selectedUid);

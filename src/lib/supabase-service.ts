@@ -94,10 +94,10 @@ export async function triggerEmergencyWithFallback(deviceUid: string) {
   try {
     const nowIso = new Date().toISOString();
     // 1. Ambil ID device (cocokkan secara case-insensitive atau gunakan perangkat pertama jika UID uji coba)
-    let device: { id: string; bank_id: string; device_uid?: string } | null = null;
+    let device: { id: string; bank_id: string; device_uid?: string; status?: string } | null = null;
     const { data: foundDev } = await supabaseAdmin
       .from('devices')
-      .select('id, bank_id, device_uid')
+      .select('id, bank_id, device_uid, status')
       .ilike('device_uid', deviceUid)
       .maybeSingle();
 
@@ -106,7 +106,7 @@ export async function triggerEmergencyWithFallback(deviceUid: string) {
     } else {
       const { data: firstDev } = await supabaseAdmin
         .from('devices')
-        .select('id, bank_id, device_uid')
+        .select('id, bank_id, device_uid, status')
         .limit(1)
         .maybeSingle();
       device = firstDev;
@@ -128,7 +128,14 @@ export async function triggerEmergencyWithFallback(deviceUid: string) {
       .limit(1)
       .maybeSingle();
 
-    // 3. Update status device ke TRIGGERED
+    // Jika perangkat SUDAH dalam status TRIGGERED atau memiliki insiden aktif yang belum selesai:
+    // JANGAN timpa timestamp last_triggered_at dan JANGAN insert log duplikat!
+    // Ini menghentikan duplikasi sinyal ganda dari Web Serial & HTTPS Wi-Fi secara tuntas.
+    if (existingUnresolved || device.status === 'TRIGGERED') {
+      return { success: true, message: 'Status darurat sudah aktif.' };
+    }
+
+    // 3. Update status device ke TRIGGERED hanya saat transisi pertama
     await supabaseAdmin
       .from('devices')
       .update({
@@ -138,15 +145,13 @@ export async function triggerEmergencyWithFallback(deviceUid: string) {
       })
       .eq('id', device.id);
 
-    // 4. Masukkan ke log insiden HANYA jika belum ada insiden aktif yang belum selesai
-    if (!existingUnresolved) {
-      await supabaseAdmin
-        .from('emergency_logs')
-        .insert({
-          device_id: device.id,
-          triggered_at: nowIso,
-        });
-    }
+    // 4. Masukkan ke log insiden (tepat 1 catatan per kejadian)
+    await supabaseAdmin
+      .from('emergency_logs')
+      .insert({
+        device_id: device.id,
+        triggered_at: nowIso,
+      });
 
     return { success: true };
   } catch (err: unknown) {
