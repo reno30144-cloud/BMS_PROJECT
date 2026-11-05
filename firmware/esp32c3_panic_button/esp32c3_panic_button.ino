@@ -362,8 +362,8 @@ bool connectToInternetWiFi() {
   WiFi.begin(sta_ssid, sta_password);
 
   unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 20000) {
-    delay(400);
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 6000) {
+    delay(300);
     Serial.print(".");
   }
 
@@ -550,12 +550,11 @@ void loop() {
     Serial.println("HEARTBEAT:ESPC32-B");
   }
 
-  // --- 4. AUTO-RECONNECT WI-FI INTERNET JIKA TERPUTUS (TIAP 20 DETIK) ---
+  // --- 4. AUTO-RECONNECT WI-FI INTERNET JIKA TERPUTUS (TIAP 10 DETIK) ---
   static unsigned long lastWifiCheck = 0;
   if (WiFi.status() != WL_CONNECTED) {
-    if (now - lastWifiCheck >= 20000) {
+    if (now - lastWifiCheck >= 10000) {
       lastWifiCheck = now;
-      Serial.println("🔄 [Wi-Fi] Belum terhubung. Mencoba menyambung kembali (WiFi.reconnect)...");
       WiFi.reconnect();
     }
   }
