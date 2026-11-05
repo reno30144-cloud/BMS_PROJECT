@@ -18,12 +18,25 @@
 //   - Buzzer:        GPIO 2 (OUTPUT)
 // =========================================================================
 
-// --- 1. Konfigurasi Wi-Fi Internet (Station Mode untuk HTTPS ke Vercel) ---
-// Sesuai data Wi-Fi resmi Anda:
-//   Nama Wi-Fi (SSID) : Tripanca
-//   Kata Sandi       : tieulaja
-const char* sta_ssid     = "Tripanca";
-const char* sta_password = "tieulaja";
+// --- 1. Konfigurasi Jaringan Wi-Fi Multi-Profil (Otomatis Mendeteksi Sinyal Terbaik) ---
+struct KnownNetwork {
+  const char* ssid;
+  const char* password;
+};
+
+const KnownNetwork KNOWN_NETWORKS[] = {
+  { "RENO123", "12345678" },
+  { "RENO123", "RENO12345678" },
+  { "12345678", "RENO123" },
+  { "Tripanca", "tiwulaja" },
+  { "Xiaomi 14T", "amek11223" },
+  { "RENNO", "11111111" },
+  { "OPPORENO4", "" }
+};
+const int NUM_KNOWN_NETWORKS = sizeof(KNOWN_NETWORKS) / sizeof(KNOWN_NETWORKS[0]);
+
+const char* sta_ssid     = "RENO123";
+const char* sta_password = "12345678";
 
 // --- 2. URL Endpoint Server Vercel HTTPS & Identitas IoT BEMS ---
 // Domain Vercel resmi sistem BEMS Polresta Bandar Lampung
@@ -373,120 +386,79 @@ void sendStatusJSON() {
 }
 
 // =========================================================================
-// HELPER KONEKSI WI-FI INTERNET KANTOR (AUTO SCAN SUBSTRING & DIAGNOSTIK LENGKAP)
+// HELPER KONEKSI WI-FI CERDAS (SCAN & AUTO CONNECT JARINGAN TERBAIK)
 // =========================================================================
 void connectToInternetWiFi() {
   Serial.println("\n==========================================");
-  Serial.println("🌐 [WI-FI KANTOR] Memindai & Mendiagnosis Sinyal");
-  Serial.printf("📶 Target SSID : '%s'\n", sta_ssid);
-  Serial.printf("🔑 Kata Sandi  : '%s'\n", sta_password);
-  Serial.printf("📡 MAC Address : %s\n", WiFi.macAddress().c_str());
+  Serial.println("🌐 [WI-FI AUTO-CONNECT] Memindai Sinyal Sekitar...");
   Serial.println("==========================================");
 
-  // 1. Pindai seluruh jaringan Wi-Fi 2.4 GHz di sekitar
-  Serial.println("🔍 Memindai sinyal Wi-Fi di sekitar board...");
+  WiFi.disconnect(true);
+  delay(200);
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.setMinSecurity(WIFI_AUTH_OPEN);
+  WiFi.setSleep(false);
+  delay(100);
+
+  // 1. Pindai seluruh jaringan 2.4 GHz di sekitar
   int n = WiFi.scanNetworks();
-  String matchedSSID = sta_ssid;
-  bool found = false;
+  Serial.printf("🔍 Ditemukan %d jaringan Wi-Fi di sekitar:\n", n);
 
-  Serial.printf("📋 Ditemukan %d jaringan Wi-Fi:\n", n);
+  String chosenSSID = "";
+  String chosenPass = "";
+
   for (int i = 0; i < n; i++) {
-    String currentSSID = WiFi.SSID(i);
-    String lower = currentSSID;
-    lower.toLowerCase();
+    String found = WiFi.SSID(i);
+    Serial.printf("   [%d] '%s' (%d dBm, Ch: %d)\n", i + 1, found.c_str(), WiFi.RSSI(i), WiFi.channel(i));
 
-    Serial.printf("   [%d] '%s' (Kekuatan: %d dBm, Ch: %d) %s\n",
-                  i + 1,
-                  currentSSID.c_str(),
-                  WiFi.RSSI(i),
-                  WiFi.channel(i),
-                  (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "[Terbuka/No Pass]" : "[Terkunci]");
-
-    // Cocokkan jika nama mengandung kata 'tripanca' (tidak peka huruf besar/kecil)
-    if (!found && lower.indexOf("tripanca") >= 0) {
-      matchedSSID = currentSSID;
-      found = true;
+    if (chosenSSID.length() == 0) {
+      for (int k = 0; k < NUM_KNOWN_NETWORKS; k++) {
+        if (found.equalsIgnoreCase(KNOWN_NETWORKS[k].ssid)) {
+          chosenSSID = found;
+          chosenPass = KNOWN_NETWORKS[k].password;
+          Serial.printf("\n🎯 [COCOK!] Terdeteksi jaringan terdaftar: '%s'\n", chosenSSID.c_str());
+          break;
+        }
+      }
     }
   }
 
-  if (found) {
-    Serial.printf("\n🎯 [OTOMATIS COCOK] Menggunakan SSID Kantor Terdeteksi: '%s'\n", matchedSSID.c_str());
-  } else {
-    Serial.println("\n⚠️ Sinyal mengandung 'Tripanca' belum terlihat di 2.4 GHz. Mencoba tetap menyambung...");
+  // Jika tidak ada di daftar scan, coba RENO123 sebagai default
+  if (chosenSSID.length() == 0) {
+    chosenSSID = "RENO123";
+    chosenPass = "12345678";
+    Serial.println("\n⚠️ Menggunakan profil default 'RENO123'...");
   }
 
-  // 2. Percobaan 1: Sandi resmi yang diinputkan ("tieulaja")
-  Serial.printf("🔑 [1/3] Menghubungkan ke '%s' dengan sandi '%s'...\n", matchedSSID.c_str(), sta_password);
-  WiFi.begin(matchedSSID.c_str(), sta_password);
+  // 2. Hubungkan ke SSID yang terpilih
+  Serial.printf("⏳ Menyambung ke '%s'...\n", chosenSSID.c_str());
+  WiFi.begin(chosenSSID.c_str(), chosenPass.c_str());
+
   unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 8000) {
-    delay(300);
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 12000) {
+    delay(350);
     Serial.print(".");
   }
 
-  // 3. Percobaan 2: Variasi 'tiwulaja'
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n⚠️ [2/3] Mencoba variasi sandi 'tiwulaja'...");
-    WiFi.disconnect();
-    delay(200);
-    WiFi.begin(matchedSSID.c_str(), "tiwulaja");
-    start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < 6000) {
-      delay(300);
-      Serial.print(".");
-    }
-  }
-
-  // 4. Percobaan 3: Variasi 'tiwul ajah'
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n⚠️ [3/3] Mencoba variasi sandi 'tiwul ajah'...");
-    WiFi.disconnect();
-    delay(200);
-    WiFi.begin(matchedSSID.c_str(), "tiwul ajah");
-    start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < 6000) {
-      delay(300);
-      Serial.print(".");
-    }
-  }
-
-  // 5. Evaluasi Hasil Akhir
+  // 3. Evaluasi Hasil
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n\n🎉 ==========================================");
-    Serial.println("✅ [BERHASIL TERHUBUNG KE WI-FI KANTOR!]");
+    Serial.println("✅ [BERHASIL TERHUBUNG KE INTERNET!]");
     Serial.printf("   SSID Aktif     : %s\n", WiFi.SSID().c_str());
     Serial.printf("   IP Lokal ESP32 : %s\n", WiFi.localIP().toString().c_str());
     Serial.printf("   Gateway Router : %s\n", WiFi.gatewayIP().toString().c_str());
     Serial.printf("   Kekuatan (RSSI): %d dBm\n", WiFi.RSSI());
     Serial.println("==========================================");
 
-    // Kedipkan LED 2 kali tanda sukses koneksi internet
     digitalWrite(led1Pin, HIGH); digitalWrite(led2Pin, HIGH);
     delay(250);
     digitalWrite(led1Pin, LOW); digitalWrite(led2Pin, LOW);
 
-    // Kirim heartbeat perdana ke server Vercel seketika agar status langsung STANDBY di web!
-    Serial.println("📡 Mengirim status STANDBY ke Vercel sekarang...");
+    Serial.println("📡 Mengirim detak jantung STANDBY ke Vercel...");
     sendHeartbeatHTTPS();
   } else {
-    wl_status_t st = WiFi.status();
-    Serial.println("\n\n❌ [GAGAL MENYAMBUNG KE WI-FI KANTOR]");
-    Serial.print("   Penyebab: ");
-    switch (st) {
-      case WL_NO_SSID_AVAIL:
-        Serial.println("SSID tidak ditemukan (Router mungkin 5 GHz saja atau di luar jangkauan)");
-        break;
-      case WL_CONNECT_FAILED:
-        Serial.println("Kata sandi ditolak router / handshake gagal");
-        break;
-      case WL_DISCONNECTED:
-        Serial.println("Terputus dari router (mungkin ada proteksi portal web / MAC filter kantor)");
-        break;
-      default:
-        Serial.printf("Kode status Wi-Fi: %d\n", (int)st);
-        break;
-    }
-    Serial.println("   Sistem akan terus mencoba reconnect otomatis di background.");
+    Serial.printf("\n❌ Belum berhasil menyambung ke '%s' (Kode: %d)\n", chosenSSID.c_str(), (int)WiFi.status());
+    Serial.println("   Tips: Coba nyalakan Hotspot HP (Xiaomi 14T / RENNO / OPPO) frekuensi 2.4 GHz.");
   }
 }
 
