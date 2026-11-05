@@ -330,122 +330,51 @@ void sendStatusJSON() {
 }
 
 // =========================================================================
-// HELPER KONEKSI WI-FI INTERNET KE HOTSPOT: RENO123 (DILENGKAPI AUTO-DIAGNOSTIK)
+// HELPER KONEKSI WI-FI INTERNET: HANYA KE HOTSPOT RENO123 (SANDI: 12345678)
 // =========================================================================
 bool connectToInternetWiFi() {
   Serial.println("\n==========================================");
-  Serial.println("🌐 [WI-FI INTERNET] Memulai Koneksi ke Hotspot");
-  Serial.printf("📡 ESP32 MAC   : %s\n", WiFi.macAddress().c_str());
+  Serial.println("🌐 [WI-FI INTERNET] Menghubungkan ke Hotspot");
+  Serial.printf("📶 Nama Wi-Fi (SSID) : %s\n", sta_ssid);
+  Serial.printf("🔑 Kata Sandi        : %s\n", sta_password);
+  Serial.printf("📡 ESP32 MAC         : %s\n", WiFi.macAddress().c_str());
   Serial.println("==========================================");
 
-  // 1. Reset Wi-Fi ke kondisi bersih dalam mode STA murni
+  // 1. Reset driver Wi-Fi bersih
+  WiFi.persistent(false);
   WiFi.disconnect(true, true);
   delay(300);
+
+  // 2. Mode Station murni
   WiFi.mode(WIFI_STA);
   delay(100);
-  WiFi.setAutoReconnect(true);
-  WiFi.persistent(true);
-  esp_wifi_set_max_tx_power(78); // 19.5 dBm: sinyal maksimal
+  esp_wifi_set_max_tx_power(78); // 19.5 dBm daya transmisi maksimal
 
-  // 2. Pindai seluruh jaringan 2.4 GHz di sekitar
-  Serial.println("🔍 Memindai sinyal Wi-Fi 2.4 GHz di sekitar board...");
-  int n = WiFi.scanNetworks();
-  Serial.printf("📋 Ditemukan %d jaringan Wi-Fi 2.4 GHz:\n", n);
+  // 3. Konfigurasi PMF untuk kompatibilitas Hotspot Android/OPPO
+  wifi_config_t conf;
+  esp_wifi_get_config(WIFI_IF_STA, &conf);
+  conf.sta.pmf_cfg.capable = true;
+  conf.sta.pmf_cfg.required = false;
+  esp_wifi_set_config(WIFI_IF_STA, &conf);
 
-  String detectedSSID = "";
-  int detectedChannel = 0;
-  bool isSecured = true;
+  // 4. Langsung sambungkan ke RENO123 dengan sandi 12345678
+  Serial.printf("⏳ Menyambung ke '%s'...\n", sta_ssid);
+  WiFi.begin(sta_ssid, sta_password);
 
-  for (int i = 0; i < n; i++) {
-    String curSSID = WiFi.SSID(i);
-    String lower = curSSID;
-    lower.toLowerCase();
-    bool openNet = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN);
-
-    Serial.printf("   [%d] '%s' (Sinyal: %d dBm, Ch: %d) %s\n",
-                  i + 1,
-                  curSSID.c_str(),
-                  WiFi.RSSI(i),
-                  WiFi.channel(i),
-                  openNet ? "[Terbuka/Tanpa Sandi]" : "[Terkunci]");
-
-    if (detectedSSID == "") {
-      if (lower.indexOf("reno") >= 0 || lower == "12345678" || lower == "oppo") {
-        detectedSSID = curSSID;
-        detectedChannel = WiFi.channel(i);
-        isSecured = !openNet;
-      }
-    }
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 20000) {
+    delay(400);
+    Serial.print(".");
   }
 
-  // Tentukan SSID dan channel target
-  String targetSSID = (detectedSSID != "") ? detectedSSID : String(sta_ssid);
-  int targetChannel = detectedChannel;
-
-  if (detectedSSID != "") {
-    Serial.printf("\n🎯 [HOTSPOT TERDETEKSI] Menemukan SSID: '%s' di Channel %d\n",
-                  targetSSID.c_str(), targetChannel);
-  } else {
-    Serial.printf("\n⚠️ Sinyal mengandung 'RENO' belum muncul di 2.4 GHz. Mencoba target: '%s'\n", targetSSID.c_str());
-    Serial.println("👉 Cek Hotspot HP: Pastikan 'Pita Frekuensi AP' disetel ke 2.4 GHz (bukan 5 GHz).");
-  }
-
-  // 3. Percobaan menyambung
-  bool connected = false;
-
-  // Jika jaringan ternyata TERBUKA tanpa sandi
-  if (!isSecured && detectedSSID != "") {
-    Serial.printf("⏳ Menyambung ke '%s' (Mode Terbuka)...\n", targetSSID.c_str());
-    if (targetChannel > 0) WiFi.begin(targetSSID.c_str(), "", targetChannel);
-    else WiFi.begin(targetSSID.c_str(), "");
-
-    unsigned long t0 = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 10000) {
-      delay(300); Serial.print(".");
-    }
-    if (WiFi.status() == WL_CONNECTED) connected = true;
-  }
-
-  // Percobaan kombinasi sandi umum jika belum terhubung
-  if (!connected) {
-    const char* passwordsToTry[] = { sta_password, "RENO12345678", "11111111", "" };
-    for (int p = 0; p < 4; p++) {
-      if (connected) break;
-      Serial.printf("\n⏳ [%d/4] Menyambung ke '%s' dengan kata sandi '%s'...\n",
-                    p + 1, targetSSID.c_str(), passwordsToTry[p]);
-
-      WiFi.disconnect(false, false);
-      delay(200);
-
-      if (targetChannel > 0) {
-        WiFi.begin(targetSSID.c_str(), passwordsToTry[p], targetChannel);
-      } else {
-        WiFi.begin(targetSSID.c_str(), passwordsToTry[p]);
-      }
-
-      unsigned long t0 = millis();
-      while (WiFi.status() != WL_CONNECTED && millis() - t0 < 12000) {
-        delay(300); Serial.print(".");
-      }
-
-      if (WiFi.status() == WL_CONNECTED) {
-        connected = true;
-        Serial.printf("\n🎉 Kunci sandi cocok: '%s'\n", passwordsToTry[p]);
-        break;
-      } else {
-        Serial.printf("\n❌ Percobaan sandi '%s' belum berhasil (Status: %d)\n", passwordsToTry[p], (int)WiFi.status());
-      }
-    }
-  }
-
-  // 4. Evaluasi Akhir
-  if (connected) {
+  // 5. Evaluasi Hasil
+  if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n\n🎉 ==========================================");
-    Serial.println("✅ [BERHASIL TERHUBUNG KE HOTSPOT HP!]");
+    Serial.println("✅ [BERHASIL TERHUBUNG KE HOTSPOT RENO123!]");
     Serial.printf("   SSID Aktif     : %s\n", WiFi.SSID().c_str());
     Serial.printf("   IP Lokal ESP32 : %s\n", WiFi.localIP().toString().c_str());
     Serial.printf("   Gateway Router : %s\n", WiFi.gatewayIP().toString().c_str());
-    Serial.printf("   Kekuatan (RSSI): %d dBm\n", WiFi.RSSI());
+    Serial.printf("   Kekuatan Sinyal: %d dBm\n", WiFi.RSSI());
     Serial.printf("   Wi-Fi Channel  : %d\n", WiFi.channel());
     Serial.println("==========================================");
 
@@ -457,8 +386,8 @@ bool connectToInternetWiFi() {
     sendHeartbeatHTTPS();
     return true;
   } else {
-    Serial.printf("\n❌ Belum berhasil tersambung ke '%s' (Status Code: %d)\n", targetSSID.c_str(), (int)WiFi.status());
-    Serial.println("👉 Background reconnect otomatis akan terus mencoba menyambung.");
+    Serial.printf("\n❌ Belum berhasil menyambung ke '%s' (Status Code: %d)\n", sta_ssid, (int)WiFi.status());
+    Serial.println("👉 Pastikan Hotspot HP 'RENO123' aktif di frekuensi 2.4 GHz dan jenis keamanan WPA2-Personal.");
     return false;
   }
 }
@@ -621,23 +550,14 @@ void loop() {
     Serial.println("HEARTBEAT:ESPC32-B");
   }
 
-  // --- 4. AUTO-RECONNECT WI-FI INTERNET JIKA TERPUTUS ---
+  // --- 4. AUTO-RECONNECT WI-FI INTERNET JIKA TERPUTUS (TIAP 20 DETIK) ---
   static unsigned long lastWifiCheck = 0;
-  static int reconnectAttempts = 0;
   if (WiFi.status() != WL_CONNECTED) {
-    if (now - lastWifiCheck >= 12000) {
+    if (now - lastWifiCheck >= 20000) {
       lastWifiCheck = now;
-      reconnectAttempts++;
-      if (reconnectAttempts % 5 == 0) {
-        Serial.println("🔄 [Wi-Fi] Pindai ulang & coba sambungkan kembali...");
-        connectToInternetWiFi();
-      } else {
-        Serial.println("🔄 [Wi-Fi] Mencoba menghubungkan ulang ke Hotspot (background)...");
-        WiFi.reconnect();
-      }
+      Serial.println("🔄 [Wi-Fi] Belum terhubung. Mencoba menyambung kembali (WiFi.reconnect)...");
+      WiFi.reconnect();
     }
-  } else {
-    reconnectAttempts = 0;
   }
 
   // --- 5. HEARTBEAT PERIODIK KE VERCEL HTTPS (TIAP 5 DETIK JIKA WI-FI TERKONEKSI) ---
