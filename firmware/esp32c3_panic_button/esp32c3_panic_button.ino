@@ -10,46 +10,40 @@
 // =========================================================================
 // BEMS POLRESTA BANDAR LAMPUNG - TRIPLE MODE (HTTPS CLOUD + USB + WI-FI AP)
 // Perangkat: ESP32-C3 SuperMini / DevKit
-// Lokasi / Unit: Tripanca (Bank Mandiri KCP Kartini)
-// Pinout Sesuai Board Anda:
+// Lokasi / Unit: BANK MANDIRI KCP Tanjungkarang Kartini
+// Pinout Sesuai Board:
 //   - Tombol Fisik:  GPIO 1 (INPUT_PULLUP)
+//   - Tombol Onboard:GPIO 9 (BOOT)
 //   - LED 1:         GPIO 0 (OUTPUT)
 //   - LED 2:         GPIO 4 (OUTPUT)
 //   - Buzzer:        GPIO 2 (OUTPUT)
 // =========================================================================
 
-// --- 1. Konfigurasi Wi-Fi Internet (Station Mode untuk HTTPS ke Vercel) ---
-// Hanya 1 Wi-Fi resmi yang digunakan:
+// --- 1. Konfigurasi Wi-Fi Hotspot Target (HANYA 1 TARGET RESMI) ---
 const char* sta_ssid     = "RENO123";
 const char* sta_password = "12345678";
 
 // --- 2. URL Endpoint Server Vercel HTTPS & Identitas IoT BEMS ---
-// Domain Vercel resmi sistem BEMS Polresta Bandar Lampung
 const char* triggerUrl   = "https://bms-project-ochre.vercel.app/api/v1/emergency/trigger";
 const char* heartbeatUrl = "https://bms-project-ochre.vercel.app/api/v1/emergency/heartbeat";
 
-// Header rahasia otentikasi perangkat IoT & UID unik teller
+// Header rahasia otentikasi perangkat IoT & UID unik
 const char* deviceToken  = "b3m5-p0lr35t4-53cr3t-t0k3n"; // Nilai header X-Device-Token
-const char* deviceUid    = "ESPC32-B";                    // Parameter payload JSON: device_uid (Sesuai Bank Mandiri KCP Kartini)
+const char* deviceUid    = "ESPC32-B";                    // Sesuai Bank Mandiri KCP Kartini
 
 // --- 3. Pengaturan Wi-Fi Access Point Cadangan (Portal Darurat Offline) ---
-// Gunakan tanda strip (-) bukan underscore (_) agar 100% terbaca di semua HP Android & iPhone
-const char* ssid = "ESP32-Tripanca";
+const char* ssid = "BEMS-Bank-Mandiri";
 const char* password = "12345678";
 
 // --- Penataan Pin Hardware ---
 const int buttonPin = 1;       // Tombol Fisik Eksternal (GPIO 1)
-const int bootButtonPin = 9;   // Tombol On-Board BOOT pada modul ESP32-C3 (GPIO 9)
+const int bootButtonPin = 9;   // Tombol On-Board BOOT ESP32-C3 (GPIO 9)
 const int led1Pin = 0;         // LED 1 (GPIO 0)
 const int led2Pin = 4;         // LED 2 (GPIO 4)
 const int buzzerPin = 2;       // Buzzer (GPIO 2)
 
-// Set ke true jika buzzer aktif saat HIGH. Ubah ke false jika Active-LOW.
 const bool BUZZER_ACTIVE_HIGH = true;
-
-// MODE SILENT ALARM: Suara buzzer fisik pada modul Arduino/ESP32 dinonaktifkan total
-// agar tidak terdengar di lokasi teller/bank (sesuai SOP keamanan perbankan Polresta)
-const bool SILENT_ALARM_MODE = true;
+const bool SILENT_ALARM_MODE = true; // Mode Silent Alarm di lokasi bank
 
 WebServer server(80);
 const byte DNS_PORT = 53;
@@ -60,15 +54,15 @@ int statusLed2 = 0;
 int statusBuzzer = 0;
 bool isPanicTriggered = false;
 
-// Filter Debounce & Anti-Noise Tombol (Peka & Cepat 25ms)
+// Filter Debounce & Anti-Noise Tombol
 int buttonState = HIGH;
 int lastReading = HIGH;
 unsigned long lastDebounceTime = 0;
-const unsigned long DEBOUNCE_DELAY = 25; // 25ms sangat responsif tanpa delay lambat
+const unsigned long DEBOUNCE_DELAY = 25;
 
-// Cooldown Lock: Mencegah trigger bertubi-tubi saat kepanikan
+// Cooldown Lock: Mencegah trigger bertubi-tubi
 unsigned long panicCooldownTime = 0;
-const unsigned long PANIC_COOLDOWN_MS = 1500; // Kunci 1.5 detik per penekanan alarm
+const unsigned long PANIC_COOLDOWN_MS = 1500;
 
 unsigned long buzzerOffTime = 0;
 bool isBuzzerBeeping = false;
@@ -76,7 +70,6 @@ unsigned long lastHeartbeat = 0;
 
 // =========================================================================
 // HALAMAN WEB MODERN (RESPONSIVE + FULL POPUP MERAH STANDAR POLRESTA)
-// Disimpan di PROGMEM agar hemat RAM ESP32-C3
 // =========================================================================
 const char HTML_PAGE[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
@@ -84,7 +77,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BEMS Panic Button - Tripanca</title>
+    <title>BEMS Panic Button - Bank Mandiri</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: #070d1e; color: #ffffff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
@@ -144,63 +137,68 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
         <img src="/logo.jpg" alt="Logo Siger Polresta" class="siger-logo">
         <div id="badgeStatus" class="badge">🟢 SIAGA TERHUBUNG</div>
         <h1>BEMS PANIC BUTTON</h1>
-        <p class="sub">Tripanca • Polresta Bandar Lampung</p>
+        <p class="sub">Bank Mandiri KCP Kartini • Polresta Bandar Lampung</p>
     </div>
 
     <div class="panic-wrapper">
-        <button id="btnPanic" class="panic-btn" onclick="pressPanic()">
+        <button id="panicButton" class="panic-btn" onpointerdown="handlePress(event)">
             <span class="panic-icon">🚨</span>
-            <span class="panic-text">PANIC</span>
-            <span class="panic-sub">TEKAN DARURAT</span>
+            <span class="panic-text">PANIC BUTTON</span>
+            <span class="panic-sub">TEKAN UNTUK BAHAYA</span>
         </button>
     </div>
 
-    <div id="statusMsg" class="status-msg">Sentuh tombol untuk mengirim sinyal bahaya</div>
+    <div id="statusMessage" class="status-msg">Tekan tombol saat terjadi darurat</div>
 
     <script>
-        function pressPanic() {
-            fetch('/panic')
-                .then(r => r.json())
-                .then(updateStatus);
-        }
-
-        function updateStatus(d) {
-            const btn = document.getElementById('btnPanic');
+        let isTriggered = false;
+        function updateUI(active) {
+            isTriggered = active;
+            const btn = document.getElementById('panicButton');
             const badge = document.getElementById('badgeStatus');
-            const msg = document.getElementById('statusMsg');
+            const msg = document.getElementById('statusMessage');
 
-            if (d && d.panic) {
+            if (active) {
                 btn.classList.add('triggered');
-                badge.className = 'badge active';
-                badge.innerText = '🔴 DARURAT TERKIRIM';
-                msg.className = 'status-msg active';
-                msg.innerText = '⚠️ Sinyal bahaya telah diterima Command Center SPKT!';
+                badge.classList.add('active');
+                badge.innerText = '🔴 DARURAT DIAKTIFKAN';
+                msg.classList.add('active');
+                msg.innerText = 'Sinyal bahaya telah terkirim ke Command Center SPKT!';
             } else {
                 btn.classList.remove('triggered');
-                badge.className = 'badge';
+                badge.classList.remove('active');
                 badge.innerText = '🟢 SIAGA TERHUBUNG';
-                msg.className = 'status-msg';
-                msg.innerText = 'Sentuh tombol untuk mengirim sinyal bahaya';
+                msg.classList.remove('active');
+                msg.innerText = 'Tekan tombol saat terjadi darurat';
+            }
+        }
+
+        function handlePress(e) {
+            e.preventDefault();
+            if (!isTriggered) {
+                fetch('/panic')
+                    .then(r => r.json())
+                    .then(data => updateUI(data.panic))
+                    .catch(() => updateUI(true));
             }
         }
 
         setInterval(() => {
             fetch('/status')
                 .then(r => r.json())
-                .then(updateStatus)
+                .then(data => updateUI(data.panic))
                 .catch(() => {});
-        }, 1000);
+        }, 1500);
     </script>
 </body>
 </html>
 )rawliteral";
 
 // =========================================================================
-// HELPER PERANGKAT KERAS
+// HELPER HARDWARE BUZZER & LED
 // =========================================================================
 void setBuzzerOutput(bool active) {
   if (SILENT_ALARM_MODE) {
-    // Di mode silent alarm, pastikan pin buzzer selalu mati (High-Z) agar senyap total
     pinMode(buzzerPin, INPUT);
     return;
   }
@@ -213,59 +211,31 @@ void setBuzzerOutput(bool active) {
 }
 
 // =========================================================================
-// TRANSMISI HTTP POST VIA HTTPS (WIFICLIENTSECURE + VERCEL SSL BYPASS)
+// TRANSMISI HTTP POST VIA HTTPS (WIFICLIENTSECURE + VERCEL SSL)
 // =========================================================================
 bool sendEmergencyTriggerHTTPS() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠️ [HTTPS POST] Wi-Fi belum tersambung. Menginisiasi koneksi ke Tripanca (4 detik)...");
-    WiFi.begin(sta_ssid, sta_password);
-    unsigned long t0 = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 4500) {
-      delay(200);
-      Serial.print(".");
-    }
-  }
-
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n❌ [HTTPS POST] Gagal kirim: Wi-Fi benar-benar tidak terhubung!");
-    // Kedipkan LED cepat 5x sebagai tanda gagal koneksi internet
-    for (int i = 0; i < 5; i++) {
-      digitalWrite(led1Pin, HIGH); delay(70);
-      digitalWrite(led1Pin, LOW); delay(70);
-    }
+    Serial.println("⚠️ [HTTPS POST] Wi-Fi belum tersambung ke Hotspot RENO123.");
     return false;
   }
 
-  Serial.println("\n🚨 [HTTPS POST] MENGIRIM SINYAL BAHAYA KE SERVER VERCEL...");
+  Serial.println("\n🚨 [HTTPS POST] MENGIRIM SINYAL DARURAT KE SERVER VERCEL...");
 
-  // Inisialisasi WiFiClientSecure
-  WiFiClientSecure* client = new WiFiClientSecure();
-  if (!client) {
-    Serial.println("❌ [HTTPS ERROR] Gagal mengalokasikan memory WiFiClientSecure!");
-    return false;
-  }
-
-  // Wajib: Menembus proteksi keamanan SSL/HTTPS Vercel tanpa verifikasi sertifikat root CA
-  client->setInsecure();
+  WiFiClientSecure client;
+  client.setInsecure();
 
   HTTPClient https;
-  https.setTimeout(10000); // 10 detik batas waktu respons
+  https.setTimeout(7000);
 
   bool requestSuccess = false;
-
   Serial.print("🌐 [TARGET URL]: ");
   Serial.println(triggerUrl);
 
-  if (https.begin(*client, triggerUrl)) {
-    // Header rahasia otentikasi perangkat dan tipe konten JSON
+  if (https.begin(client, triggerUrl)) {
     https.addHeader("Content-Type", "application/json");
     https.addHeader("X-Device-Token", deviceToken);
 
-    // Siapkan payload JSON berisi device_uid
     String payload = "{\"device_uid\":\"" + String(deviceUid) + "\"}";
-
-    Serial.print("🔑 [HEADER]: X-Device-Token: ");
-    Serial.println(deviceToken);
     Serial.print("📦 [PAYLOAD]: ");
     Serial.println(payload);
 
@@ -281,14 +251,11 @@ bool sendEmergencyTriggerHTTPS() {
       Serial.printf("❌ [HTTPS ERROR] Gagal mengirim POST! Error: %s (Kode: %d)\n",
                     https.errorToString(httpCode).c_str(), httpCode);
     }
-
     https.end();
   } else {
     Serial.println("❌ [HTTPS ERROR] Inisialisasi https.begin() gagal!");
   }
 
-  // Bersihkan heap memory
-  delete client;
   return requestSuccess;
 }
 
@@ -296,15 +263,13 @@ bool sendEmergencyTriggerHTTPS() {
 void sendHeartbeatHTTPS() {
   if (WiFi.status() != WL_CONNECTED) return;
 
-  WiFiClientSecure* client = new WiFiClientSecure();
-  if (!client) return;
-
-  client->setInsecure();
+  WiFiClientSecure client;
+  client.setInsecure();
 
   HTTPClient https;
-  https.setTimeout(8000);
+  https.setTimeout(5000);
 
-  if (https.begin(*client, heartbeatUrl)) {
+  if (https.begin(client, heartbeatUrl)) {
     https.addHeader("Content-Type", "application/json");
     https.addHeader("X-Device-Token", deviceToken);
 
@@ -313,11 +278,10 @@ void sendHeartbeatHTTPS() {
 
     int httpCode = https.POST(payload);
     if (httpCode > 0) {
-      Serial.printf("💓 [HEARTBEAT HTTPS] Sukses (Code: %d, RSSI: %d dBm) -> Status Web: STANDBY (Hijau)\n", httpCode, rssi);
-      // Kedipan LED visual singkat (80ms) tanda komunikasi Vercel aktif saat dicolok casan
+      Serial.printf("💓 [HEARTBEAT HTTPS] Sukses (Code: %d, RSSI: %d dBm) -> Web: STANDBY (Hijau)\n", httpCode, rssi);
       if (!isPanicTriggered) {
         digitalWrite(led1Pin, HIGH);
-        delay(80);
+        delay(50);
         digitalWrite(led1Pin, LOW);
       }
     } else {
@@ -325,29 +289,24 @@ void sendHeartbeatHTTPS() {
     }
     https.end();
   }
-
-  delete client;
 }
 
 void triggerAlarmAction() {
-  // 1. Kunci cooldown 2.5 detik cegah false trigger
   panicCooldownTime = millis() + PANIC_COOLDOWN_MS;
 
-  // 2. Kirim sinyal USB Serial untuk Dashboard Next.js (http://localhost:3000 / Web Serial)
+  // 1. Kirim sinyal USB Serial untuk Dashboard Web (Web Serial COM8)
   Serial.println("PANIC:ESPC32-B");
 
-  // 3. Set flag status darurat untuk Wi-Fi Web (http://192.168.4.1)
+  // 2. Set flag status darurat
   isPanicTriggered = true;
-
-  // 4. Buzzer fisik dinonaktifkan (Silent Alarm di lokasi bank)
   setBuzzerOutput(false);
   isBuzzerBeeping = false;
 
-  // 5. Nyalakan LED darurat
+  // 3. Nyalakan LED darurat
   digitalWrite(led1Pin, HIGH);
   digitalWrite(led2Pin, HIGH);
 
-  // 6. Transmisi sinyal darurat ke Cloud HTTPS Vercel (BEMS Polresta)
+  // 4. Transmisi sinyal darurat ke Cloud HTTPS Vercel
   sendEmergencyTriggerHTTPS();
 }
 
@@ -371,27 +330,27 @@ void sendStatusJSON() {
 }
 
 // =========================================================================
-// HELPER KONEKSI WI-FI INTERNET (SSID: RENO123, SANDI: 12345678)
+// HELPER KONEKSI WI-FI INTERNET KE HOTSPOT: RENO123
 // =========================================================================
-void connectToInternetWiFi() {
+bool connectToInternetWiFi() {
   Serial.println("\n==========================================");
-  Serial.println("🌐 [WI-FI INTERNET] Menghubungkan ke RENO123");
+  Serial.println("🌐 [WI-FI INTERNET] Menghubungkan ke Hotspot: RENO123");
   Serial.printf("📶 SSID Target : %s\n", sta_ssid);
   Serial.printf("🔑 Kata Sandi : %s\n", sta_password);
   Serial.println("==========================================");
 
-  WiFi.disconnect(true);
-  delay(200);
+  WiFi.disconnect();
+  delay(100);
   WiFi.mode(WIFI_AP_STA);
   WiFi.setMinSecurity(WIFI_AUTH_OPEN);
   WiFi.setSleep(false);
-  delay(100);
+  esp_wifi_set_max_tx_power(60); // 15 dBm: stabil, bebas brownout
 
   Serial.printf("⏳ Menyambung ke Hotspot '%s'...\n", sta_ssid);
   WiFi.begin(sta_ssid, sta_password);
 
   unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
     delay(400);
     Serial.print(".");
   }
@@ -406,14 +365,16 @@ void connectToInternetWiFi() {
     Serial.println("==========================================");
 
     digitalWrite(led1Pin, HIGH); digitalWrite(led2Pin, HIGH);
-    delay(250);
+    delay(200);
     digitalWrite(led1Pin, LOW); digitalWrite(led2Pin, LOW);
 
     Serial.println("📡 Mengirim detak jantung STANDBY ke Vercel...");
     sendHeartbeatHTTPS();
+    return true;
   } else {
-    Serial.printf("\n❌ Belum berhasil menyambung ke '%s' (Kode: %d)\n", sta_ssid, (int)WiFi.status());
-    Serial.println("   Sistem akan terus mencoba menghubungkan ulang di background.");
+    Serial.printf("\n❌ Belum berhasil menyambung ke '%s' (Status: %d)\n", sta_ssid, (int)WiFi.status());
+    Serial.println("👉 Pastikan Hotspot HP 'RENO123' aktif di frekuensi 2.4 GHz.");
+    return false;
   }
 }
 
@@ -422,52 +383,36 @@ void connectToInternetWiFi() {
 // =========================================================================
 void setup() {
   Serial.begin(115200);
+  delay(1000); // Beri waktu USB CDC siap
 
   // Setup Pin Hardware
   pinMode(buttonPin, INPUT_PULLUP);      // GPIO 1 (Tombol Eksternal)
   pinMode(bootButtonPin, INPUT_PULLUP);  // GPIO 9 (Tombol On-Board BOOT ESP32-C3)
   pinMode(led1Pin, OUTPUT);
   pinMode(led2Pin, OUTPUT);
-  setBuzzerOutput(false); // Pastikan buzzer diam total (High-Z)
+  setBuzzerOutput(false);
 
   digitalWrite(led1Pin, LOW);
   digitalWrite(led2Pin, LOW);
 
-  // 1. Matikan radio Wi-Fi dulu agar bersih
-  WiFi.disconnect(true);
-  delay(100);
-
-  // 2. Aktifkan Mode Station terlebih dahulu untuk terhubung ke internet (DHCP Otomatis)
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.setSleep(false); // Radio tetap siaga tanpa sleep
-
-  // 3. Hubungkan ke Wi-Fi Internet Tripanca DULUAN (sebelum SoftAP mengunci channel)
+  // Sambungkan ke Hotspot RENO123
   connectToInternetWiFi();
 
-  // 4. Konfigurasi SoftAP lokal tanpa mengunci channel
+  // Konfigurasi SoftAP Cadangan
   IPAddress local_ip(192, 168, 4, 1);
   IPAddress gateway(192, 168, 4, 1);
   IPAddress subnet(255, 255, 255, 0);
   WiFi.softAPConfig(local_ip, gateway, subnet);
-
   bool apSuccess = WiFi.softAP(ssid, password);
-  if (!apSuccess) {
-    apSuccess = WiFi.softAP(ssid, NULL);
-  }
 
-  // Atur TX Power yang stabil (68 ~ 17 dBm) cegah brownout drop tegangan
-  esp_wifi_set_max_tx_power(68);
-
-  // Jalankan DNS Server Captive Portal
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(DNS_PORT, "*", local_ip);
-
   MDNS.begin("bems");
 
   Serial.println("\n==========================================");
   Serial.println("  BEMS ESP32-C3 SMART MONITORING          ");
   Serial.println("  POLRESTA BANDAR LAMPUNG                 ");
-  Serial.println("  Unit / Lokasi: Tripanca                 ");
+  Serial.println("  Unit / Lokasi: Bank Mandiri KCP Kartini ");
   Serial.println("==========================================");
   Serial.print("🟢 Status Wi-Fi AP:    "); Serial.println(apSuccess ? "AKTIF (192.168.4.1)" : "GAGAL");
   Serial.print("📶 SSID AP Lokal:      "); Serial.println(ssid);
@@ -481,8 +426,6 @@ void setup() {
   // Routing HTTP Server
   server.on("/", HTTP_GET, []() {
     server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    server.sendHeader("Pragma", "no-cache");
-    server.sendHeader("Expires", "0");
     server.send_P(200, "text/html", HTML_PAGE);
   });
 
@@ -508,37 +451,6 @@ void setup() {
     sendStatusJSON();
   });
 
-  server.on("/toggle", HTTP_GET, []() {
-    String t = server.arg("target");
-    if (t == "led1") {
-      statusLed1 = !statusLed1;
-      digitalWrite(led1Pin, statusLed1 ? HIGH : LOW);
-    }
-    if (t == "led2") {
-      statusLed2 = !statusLed2;
-      digitalWrite(led2Pin, statusLed2 ? HIGH : LOW);
-    }
-    if (t == "buzzer") {
-      statusBuzzer = !statusBuzzer;
-      setBuzzerOutput(statusBuzzer);
-    }
-    sendStatusJSON();
-  });
-
-  // Captive Portal Endpoints
-  server.on("/generate_204", HTTP_GET, []() {
-    server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    server.send_P(200, "text/html", HTML_PAGE);
-  });
-  server.on("/gen_204", HTTP_GET, []() {
-    server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    server.send_P(200, "text/html", HTML_PAGE);
-  });
-  server.on("/ncsi.txt", HTTP_GET, []() { server.send(200, "text/plain", "Microsoft NCSI"); });
-  server.on("/hotspot-detect.html", HTTP_GET, []() {
-    server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    server.send_P(200, "text/html", HTML_PAGE);
-  });
   server.onNotFound([]() {
     server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     server.send_P(200, "text/html", HTML_PAGE);
@@ -547,12 +459,10 @@ void setup() {
   server.begin();
   Serial.println("🟢 [SISTEM] Server Web Siap di http://192.168.4.1 atau http://bems.local");
 
-  // INDIKATOR FISIK: Nyalakan LED pendek 100ms tanda booting siap (Buzzer fisik tetap senyap total)
   digitalWrite(led1Pin, HIGH);
   delay(100);
   digitalWrite(led1Pin, LOW);
 
-  // Stabilisasi tombol
   delay(200);
   buttonState = digitalRead(buttonPin);
   lastReading = buttonState;
@@ -582,7 +492,6 @@ void loop() {
     int readExt = digitalRead(buttonPin);
     int readBoot = digitalRead(bootButtonPin);
 
-    // Aktif jika salah satu tombol ditekan (Active LOW)
     int reading = (readExt == LOW || readBoot == LOW) ? LOW : HIGH;
 
     if (reading != lastReading) {
@@ -593,13 +502,11 @@ void loop() {
       if (reading != buttonState) {
         buttonState = reading;
 
-        // Terdeteksi ditekan (Aktif LOW)
         if (buttonState == LOW) {
           Serial.println("\n🔥 [TOMBOL FISIK DITEKAN!] Tombol terdeteksi aktif.");
           if (readExt == LOW) Serial.println("   -> Pemicu: GPIO 1 (Tombol Eksternal)");
           if (readBoot == LOW) Serial.println("   -> Pemicu: GPIO 9 (Tombol On-Board BOOT)");
 
-          // Nyalakan LED langsung sebagai umpan balik fisik seketika
           digitalWrite(led1Pin, HIGH);
           digitalWrite(led2Pin, HIGH);
 
@@ -627,20 +534,22 @@ void loop() {
     Serial.println("HEARTBEAT:ESPC32-B");
   }
 
-  // --- 4. AUTO-RECONNECT WI-FI INTERNET JIKA TERPUTUS ---
+  // --- 4. AUTO-RECONNECT WI-FI INTERNET JIKA TERPUTUS (TIAP 10 DETIK) ---
   static unsigned long lastWifiCheck = 0;
-  if (now - lastWifiCheck >= 15000) {
-    lastWifiCheck = now;
-    if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("🔄 [Wi-Fi] Terputus. Menghubungkan ulang ke RENO123...");
-      WiFi.reconnect();
+  if (WiFi.status() != WL_CONNECTED) {
+    if (now - lastWifiCheck >= 10000) {
+      lastWifiCheck = now;
+      Serial.println("🔄 [Wi-Fi] Belum terhubung ke RENO123. Mencoba menyambung kembali...");
+      connectToInternetWiFi();
     }
   }
 
-  // --- 5. HEARTBEAT PERIODIK KE VERCEL HTTPS (TIAP 4 DETIK - SUPER RESPONSIF) ---
+  // --- 5. HEARTBEAT PERIODIK KE VERCEL HTTPS (TIAP 5 DETIK JIKA WI-FI TERKONEKSI) ---
   static unsigned long lastHttpsHeartbeat = 0;
-  if (now - lastHttpsHeartbeat >= 4000) {
-    lastHttpsHeartbeat = now;
-    sendHeartbeatHTTPS();
+  if (WiFi.status() == WL_CONNECTED) {
+    if (now - lastHttpsHeartbeat >= 5000) {
+      lastHttpsHeartbeat = now;
+      sendHeartbeatHTTPS();
+    }
   }
 }
