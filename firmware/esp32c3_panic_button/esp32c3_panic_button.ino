@@ -341,8 +341,9 @@ bool connectToInternetWiFi() {
   Serial.println("==========================================");
 
   WiFi.disconnect(true);
-  delay(100);
+  delay(250);
   WiFi.mode(WIFI_AP_STA);
+  delay(100);
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
   WiFi.setMinSecurity(WIFI_AUTH_OPEN);
