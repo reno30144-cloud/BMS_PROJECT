@@ -18,23 +18,8 @@
 //   - Buzzer:        GPIO 2 (OUTPUT)
 // =========================================================================
 
-// --- 1. Konfigurasi Jaringan Wi-Fi Multi-Profil (Otomatis Mendeteksi Sinyal Terbaik) ---
-struct KnownNetwork {
-  const char* ssid;
-  const char* password;
-};
-
-const KnownNetwork KNOWN_NETWORKS[] = {
-  { "RENO123", "12345678" },
-  { "RENO123", "RENO12345678" },
-  { "12345678", "RENO123" },
-  { "Tripanca", "tiwulaja" },
-  { "Xiaomi 14T", "amek11223" },
-  { "RENNO", "11111111" },
-  { "OPPORENO4", "" }
-};
-const int NUM_KNOWN_NETWORKS = sizeof(KNOWN_NETWORKS) / sizeof(KNOWN_NETWORKS[0]);
-
+// --- 1. Konfigurasi Wi-Fi Internet (Station Mode untuk HTTPS ke Vercel) ---
+// Hanya 1 Wi-Fi resmi yang digunakan:
 const char* sta_ssid     = "RENO123";
 const char* sta_password = "12345678";
 
@@ -386,11 +371,13 @@ void sendStatusJSON() {
 }
 
 // =========================================================================
-// HELPER KONEKSI WI-FI CERDAS (SCAN & AUTO CONNECT JARINGAN TERBAIK)
+// HELPER KONEKSI WI-FI INTERNET (SSID: RENO123, SANDI: 12345678)
 // =========================================================================
 void connectToInternetWiFi() {
   Serial.println("\n==========================================");
-  Serial.println("🌐 [WI-FI AUTO-CONNECT] Memindai Sinyal Sekitar...");
+  Serial.println("🌐 [WI-FI INTERNET] Menghubungkan ke RENO123");
+  Serial.printf("📶 SSID Target : %s\n", sta_ssid);
+  Serial.printf("🔑 Kata Sandi : %s\n", sta_password);
   Serial.println("==========================================");
 
   WiFi.disconnect(true);
@@ -400,50 +387,18 @@ void connectToInternetWiFi() {
   WiFi.setSleep(false);
   delay(100);
 
-  // 1. Pindai seluruh jaringan 2.4 GHz di sekitar
-  int n = WiFi.scanNetworks();
-  Serial.printf("🔍 Ditemukan %d jaringan Wi-Fi di sekitar:\n", n);
-
-  String chosenSSID = "";
-  String chosenPass = "";
-
-  for (int i = 0; i < n; i++) {
-    String found = WiFi.SSID(i);
-    Serial.printf("   [%d] '%s' (%d dBm, Ch: %d)\n", i + 1, found.c_str(), WiFi.RSSI(i), WiFi.channel(i));
-
-    if (chosenSSID.length() == 0) {
-      for (int k = 0; k < NUM_KNOWN_NETWORKS; k++) {
-        if (found.equalsIgnoreCase(KNOWN_NETWORKS[k].ssid)) {
-          chosenSSID = found;
-          chosenPass = KNOWN_NETWORKS[k].password;
-          Serial.printf("\n🎯 [COCOK!] Terdeteksi jaringan terdaftar: '%s'\n", chosenSSID.c_str());
-          break;
-        }
-      }
-    }
-  }
-
-  // Jika tidak ada di daftar scan, coba RENO123 sebagai default
-  if (chosenSSID.length() == 0) {
-    chosenSSID = "RENO123";
-    chosenPass = "12345678";
-    Serial.println("\n⚠️ Menggunakan profil default 'RENO123'...");
-  }
-
-  // 2. Hubungkan ke SSID yang terpilih
-  Serial.printf("⏳ Menyambung ke '%s'...\n", chosenSSID.c_str());
-  WiFi.begin(chosenSSID.c_str(), chosenPass.c_str());
+  Serial.printf("⏳ Menyambung ke Hotspot '%s'...\n", sta_ssid);
+  WiFi.begin(sta_ssid, sta_password);
 
   unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 12000) {
-    delay(350);
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+    delay(400);
     Serial.print(".");
   }
 
-  // 3. Evaluasi Hasil
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n\n🎉 ==========================================");
-    Serial.println("✅ [BERHASIL TERHUBUNG KE INTERNET!]");
+    Serial.println("✅ [BERHASIL TERHUBUNG KE WI-FI RENO123!]");
     Serial.printf("   SSID Aktif     : %s\n", WiFi.SSID().c_str());
     Serial.printf("   IP Lokal ESP32 : %s\n", WiFi.localIP().toString().c_str());
     Serial.printf("   Gateway Router : %s\n", WiFi.gatewayIP().toString().c_str());
@@ -457,8 +412,8 @@ void connectToInternetWiFi() {
     Serial.println("📡 Mengirim detak jantung STANDBY ke Vercel...");
     sendHeartbeatHTTPS();
   } else {
-    Serial.printf("\n❌ Belum berhasil menyambung ke '%s' (Kode: %d)\n", chosenSSID.c_str(), (int)WiFi.status());
-    Serial.println("   Tips: Coba nyalakan Hotspot HP (Xiaomi 14T / RENNO / OPPO) frekuensi 2.4 GHz.");
+    Serial.printf("\n❌ Belum berhasil menyambung ke '%s' (Kode: %d)\n", sta_ssid, (int)WiFi.status());
+    Serial.println("   Sistem akan terus mencoba menghubungkan ulang di background.");
   }
 }
 
@@ -677,7 +632,7 @@ void loop() {
   if (now - lastWifiCheck >= 15000) {
     lastWifiCheck = now;
     if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("🔄 [Wi-Fi] Terputus. Menghubungkan ulang ke Tripanca...");
+      Serial.println("🔄 [Wi-Fi] Terputus. Menghubungkan ulang ke RENO123...");
       WiFi.reconnect();
     }
   }
