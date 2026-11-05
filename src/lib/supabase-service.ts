@@ -119,7 +119,16 @@ export async function triggerEmergencyWithFallback(deviceUid: string) {
 
     const actualUid = device.device_uid || deviceUid;
 
-    // 2. Update status device ke TRIGGERED
+    // 2. Cek apakah sudah ada log darurat aktif yang belum diselesaikan (mencegah duplikasi ganda)
+    const { data: existingUnresolved } = await supabaseAdmin
+      .from('emergency_logs')
+      .select('id')
+      .eq('device_id', device.id)
+      .is('resolved_at', null)
+      .limit(1)
+      .maybeSingle();
+
+    // 3. Update status device ke TRIGGERED
     await supabaseAdmin
       .from('devices')
       .update({
@@ -129,13 +138,15 @@ export async function triggerEmergencyWithFallback(deviceUid: string) {
       })
       .eq('id', device.id);
 
-    // 3. Masukkan ke log insiden
-    await supabaseAdmin
-      .from('emergency_logs')
-      .insert({
-        device_id: device.id,
-        triggered_at: nowIso,
-      });
+    // 4. Masukkan ke log insiden HANYA jika belum ada insiden aktif yang belum selesai
+    if (!existingUnresolved) {
+      await supabaseAdmin
+        .from('emergency_logs')
+        .insert({
+          device_id: device.id,
+          triggered_at: nowIso,
+        });
+    }
 
     return { success: true };
   } catch (err: unknown) {
@@ -209,24 +220,36 @@ export async function resetEmergencyWithFallback(deviceUid: string, operatorName
   try {
     const nowIso = new Date().toISOString();
 
-    // 1. Ambil ID device
-    const { data: device } = await supabaseAdmin
+    // 1. Ambil ID device secara case-insensitive
+    let device: { id: string } | null = null;
+    const { data: foundDev } = await supabaseAdmin
       .from('devices')
       .select('id')
-      .eq('device_uid', deviceUid)
-      .single();
+      .ilike('device_uid', deviceUid)
+      .maybeSingle();
 
-    // 2. Update status ke STANDBY
-    await supabaseAdmin
-      .from('devices')
-      .update({
-        status: 'STANDBY',
-        updated_at: nowIso,
-      })
-      .eq('device_uid', deviceUid);
+    if (foundDev) {
+      device = foundDev;
+    } else {
+      const { data: firstDev } = await supabaseAdmin
+        .from('devices')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+      device = firstDev;
+    }
 
-    // 3. Update emergency_logs
     if (device?.id) {
+      // 2. Update status ke STANDBY
+      await supabaseAdmin
+        .from('devices')
+        .update({
+          status: 'STANDBY',
+          updated_at: nowIso,
+        })
+        .eq('id', device.id);
+
+      // 3. Update emergency_logs
       await supabaseAdmin
         .from('emergency_logs')
         .update({

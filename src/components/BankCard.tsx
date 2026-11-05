@@ -46,6 +46,17 @@ export const BankCard: React.FC<BankCardProps> = ({
   const [exactTriggerTime, setExactTriggerTime] = useState<string>('-');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isTriggering, setIsTriggering] = useState(false);
+
+  const handleSimulateClick = async () => {
+    if (isTriggering || status === 'TRIGGERED') return;
+    setIsTriggering(true);
+    try {
+      await onSimulateTrigger(deviceUid);
+    } finally {
+      setTimeout(() => setIsTriggering(false), 2500);
+    }
+  };
 
   useEffect(() => {
     const updateRelative = () => {
@@ -310,11 +321,16 @@ export const BankCard: React.FC<BankCardProps> = ({
         ) : (
           <>
             <button
-              onClick={() => onSimulateTrigger(deviceUid)}
+              onClick={handleSimulateClick}
+              disabled={isTriggering || isTriggered}
               title="Uji simulasi trigger bahaya"
-              className="min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-[#102A43] bg-white hover:bg-slate-100 hover:text-slate-950 border border-slate-300 shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+              className={`min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border shadow-xs active:scale-95 transition-all flex items-center justify-center ${
+                isTriggering || isTriggered
+                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                  : 'text-[#102A43] bg-white hover:bg-slate-100 hover:text-slate-950 border-slate-300 cursor-pointer'
+              }`}
             >
-              Tes Tombol
+              {isTriggering ? 'Memproses...' : 'Tes Tombol'}
             </button>
             <span className="text-xs text-slate-500 font-semibold">
               {isStandby ? '✓ Monitoring Aktif' : '⚠️ Perlu Pengecekan'}

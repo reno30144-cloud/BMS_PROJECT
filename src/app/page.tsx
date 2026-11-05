@@ -55,6 +55,7 @@ export default function DashboardPage() {
   const serialPortRef = React.useRef<any>(null);
   const serialReaderRef = React.useRef<any>(null);
   const readableStreamClosedRef = React.useRef<Promise<void> | null>(null);
+  const lastTriggeredTimestampRef = React.useRef<{ [key: string]: number }>({});
 
   // Operator Auth State & RBAC (Role: 'admin' | 'polsek')
   const [operatorUser, setOperatorUser] = useState<UserProfile>({
@@ -127,33 +128,27 @@ export default function DashboardPage() {
         if (json.data?.devices) {
           const incomingDevices: Device[] = json.data.devices;
 
-          // Sinkronkan perangkat yang berstatus TRIGGERED dari server ke daftar aktif
+          // Sinkronkan daftar perangkat yang berstatus TRIGGERED langsung dari server
           const serverTriggered = incomingDevices
             .filter((d) => d.status === 'TRIGGERED')
             .map((d) => d.deviceUid);
 
-          if (serverTriggered.length > 0) {
-            const combined = Array.from(
-              new Set([
-                ...activeEmergencyUidsRef.current.map((u) => u.toLowerCase()),
-                ...serverTriggered.map((u) => u.toLowerCase()),
-              ])
-            );
-            activeEmergencyUidsRef.current = combined;
-            setActiveEmergencyUids(combined);
-          }
+          // Update activeEmergencyUids langsung mengikuti server
+          activeEmergencyUidsRef.current = serverTriggered;
+          setActiveEmergencyUids(serverTriggered);
 
-          // Pertahankan status TRIGGERED untuk setiap UID yang sedang terkunci aktif
-          // sehingga polling server tidak akan pernah mematikan status darurat sebelum admin me-reset
-          setDevices(() => {
-            const activeSet = new Set(activeEmergencyUidsRef.current.map((u) => u.toLowerCase()));
-            return incomingDevices.map((d) => {
-              if (activeSet.has(d.deviceUid.toLowerCase())) {
-                return { ...d, status: 'TRIGGERED' as const };
-              }
-              return d;
-            });
-          });
+          // Update state devices langsung dari server
+          setDevices(incomingDevices);
+
+          // Jika SEMUA perangkat di server sudah berstatus STANDBY (sudah diselesaikan salah satu admin/polsek):
+          // Otomatis matikan sirine dan tutup popup darurat di seluruh layar client yang sedang terbuka
+          if (serverTriggered.length === 0) {
+            alarmAudio.stop();
+            setIsEmergencyAlertOpen(false);
+            setEmergencyAlertTargetDevice(null);
+            setResetTargetDevice(null);
+            setLastAlertedTriggerTime(null);
+          }
         }
         if (json.data?.logs) {
           setLogs(json.data.logs);
@@ -264,18 +259,37 @@ export default function DashboardPage() {
     const triggeredDev = devices.find((d) => d.status === 'TRIGGERED');
     if (triggeredDev) {
       const triggerTime = triggeredDev.lastTriggeredAt || (triggeredDev as any).updatedAt || 'triggered-event';
-      if (triggerTime !== lastAlertedTriggerTime) {
+      // Hanya buka jika modal belum terbuka atau target darurat berganti perangkat (mencegah popup muncul dua kali/flicker)
+      if (!isEmergencyAlertOpen || emergencyAlertTargetDevice?.deviceUid.toLowerCase() !== triggeredDev.deviceUid.toLowerCase()) {
         setEmergencyAlertTargetDevice(triggeredDev);
         setIsEmergencyAlertOpen(true);
         setLastAlertedTriggerTime(triggerTime);
       }
+    } else {
+      // Jika TIDAK ADA perangkat yang berstatus TRIGGERED (karena sudah diselesaikan oleh admin/polsek manapun)
+      // Otomatis tutup popup darurat di semua layar client
+      if (isEmergencyAlertOpen) {
+        setIsEmergencyAlertOpen(false);
+        setEmergencyAlertTargetDevice(null);
+        setResetTargetDevice(null);
+        setLastAlertedTriggerTime(null);
+      }
     }
-  }, [devices, lastAlertedTriggerTime]);
+  }, [devices, isEmergencyAlertOpen, emergencyAlertTargetDevice]);
 
   // Handle Trigger from Simulator, Card button, or USB Serial
   const handleTriggerEmergency = async (deviceUid: string): Promise<number> => {
     const startTime = performance.now();
     const cleanUid = (deviceUid || '').trim().toLowerCase();
+
+    // Debounce 2500ms per UID: Cegah trigger dobel jika tertekan 2 kali atau masuk via USB dan Wi-Fi bersamaan
+    const now = Date.now();
+    const lastTime = lastTriggeredTimestampRef.current[cleanUid] || 0;
+    if (now - lastTime < 2500) {
+      console.log('[DEBOUNCE] Mengabaikan pemicu darurat ganda untuk UID:', cleanUid);
+      return 0;
+    }
+    lastTriggeredTimestampRef.current[cleanUid] = now;
 
     // 1. Identifikasi target perangkat yang mengalami situasi darurat
     const target =
@@ -482,7 +496,11 @@ export default function DashboardPage() {
     // 3. Sirine HANYA berhenti jika SEMUA insiden darurat sudah di-reset oleh admin
     if (remainingUids.length === 0 && !remainingInDevices) {
       alarmAudio.stop();
+      setIsEmergencyAlertOpen(false);
+      setEmergencyAlertTargetDevice(null);
+      setLastAlertedTriggerTime(null);
     }
+    setResetTargetDevice(null);
 
     // 4. Kembalikan status perangkat ke STANDBY di local state seketika
     setDevices((prev) =>

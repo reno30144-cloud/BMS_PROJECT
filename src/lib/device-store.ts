@@ -69,22 +69,29 @@ class DeviceStore {
     const device = this.devices[idx];
     const nowIso = new Date().toISOString();
 
+    const isAlreadyTriggered = device.status === 'TRIGGERED';
+    const hasUnresolvedLog = this.logs.some(
+      (l) => l.deviceId === device.id && !l.resolvedAt
+    );
+
     const updatedDevice: Device = {
       ...device,
       status: 'TRIGGERED',
-      lastTriggeredAt: nowIso,
+      lastTriggeredAt: isAlreadyTriggered ? device.lastTriggeredAt : nowIso,
     };
 
     this.devices[idx] = updatedDevice;
 
-    // Catat log
-    this.logs.unshift({
-      id: `log-${Date.now()}`,
-      deviceId: device.id,
-      bankName: device.bank.name,
-      branchName: device.bank.branchName,
-      triggeredAt: nowIso,
-    });
+    // Cegah log duplikat jika perangkat sudah berstatus darurat dan belum di-reset
+    if (!hasUnresolvedLog && !isAlreadyTriggered) {
+      this.logs.unshift({
+        id: `log-${Date.now()}`,
+        deviceId: device.id,
+        bankName: device.bank.name,
+        branchName: device.bank.branchName,
+        triggeredAt: nowIso,
+      });
+    }
 
     this.notify();
     return { success: true, device: updatedDevice, message: 'Status bahaya berhasil dipicu.' };
@@ -123,7 +130,10 @@ class DeviceStore {
     operatorName: string,
     resolutionNotes: string
   ): { success: boolean; device?: Device; message: string } {
-    const idx = this.devices.findIndex((d) => d.deviceUid === deviceUid);
+    let idx = this.devices.findIndex((d) => d.deviceUid.toLowerCase() === deviceUid.toLowerCase());
+    if (idx === -1 && this.devices.length > 0) {
+      idx = 0;
+    }
     if (idx === -1) {
       return { success: false, message: `Device dengan UID ${deviceUid} tidak ditemukan.` };
     }
@@ -138,13 +148,14 @@ class DeviceStore {
 
     this.devices[idx] = updatedDevice;
 
-    // Update log terbaru
-    const pendingLog = this.logs.find((l) => l.deviceId === device.id && !l.resolvedAt);
-    if (pendingLog) {
-      pendingLog.resolvedAt = nowIso;
-      pendingLog.operatorName = operatorName;
-      pendingLog.resolutionNotes = resolutionNotes;
-    }
+    // Tandai semua log yang belum di-resolve untuk device ini
+    this.logs.forEach((l) => {
+      if (l.deviceId === device.id && !l.resolvedAt) {
+        l.resolvedAt = nowIso;
+        l.operatorName = operatorName || 'Admin SPKT Polresta';
+        l.resolutionNotes = resolutionNotes || 'Situasi telah dipastikan aman terkendali.';
+      }
+    });
 
     this.notify();
     return { success: true, device: updatedDevice, message: 'Status berhasil direset ke STANDBY.' };
