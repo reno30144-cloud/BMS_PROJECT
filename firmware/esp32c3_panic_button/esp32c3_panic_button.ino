@@ -1,6 +1,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include "esp_wifi.h"
 
 // =========================================================================
 // BEMS POLRESTA BANDAR LAMPUNG - DUAL CHANNEL (CLOUD HTTPS + USB SERIAL)
@@ -42,6 +43,7 @@ int statusLed1 = 0;
 int statusLed2 = 0;
 int statusBuzzer = 0;
 bool isPanicTriggered = false;
+int savedTargetChannel = 0; // Kanal radio Hotspot jika terdeteksi saat pemindaian
 
 // Filter Debounce Tombol
 int buttonState = HIGH;
@@ -183,7 +185,40 @@ void triggerAlarmAction() {
 }
 
 // =========================================================================
-// INISIALISASI WI-FI KE HOTSPOT RENO123
+// EVENT LISTENER WI-FI (DIAGNOSTIK OTOMATIS)
+// =========================================================================
+void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
+  switch (event) {
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP: {
+      Serial.println("\n🎉 [WI-FI EVENT] ESP32 BERHASIL MENDAPATKAN ALAMAT IP!");
+      Serial.printf("   IP Address : %s\n", WiFi.localIP().toString().c_str());
+      Serial.printf("   Gateway    : %s\n", WiFi.gatewayIP().toString().c_str());
+      Serial.printf("   Sinyal     : %d dBm\n", WiFi.RSSI());
+      break;
+    }
+
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
+      uint8_t reason = info.wifi_sta_disconnected.reason;
+      Serial.printf("\n⚠️ [WI-FI EVENT] Terputus dari Hotspot (Kode Alasan: %d)\n", reason);
+      if (reason == 2) {
+        Serial.println("   👉 Alasan 2 (AUTH_EXPIRE): HP menolak otentikasi.");
+        Serial.println("      Solusi HP: Buka Pengaturan Hotspot > Ubah Keamanan ke 'WPA2-Personal' atau 'Tanpa Sandi'.");
+      } else if (reason == 15 || reason == 202) {
+        Serial.println("   👉 Alasan 15/202 (WRONG_PASSWORD/HANDSHAKE): Sandi salah atau enkripsi tidak cocok.");
+        Serial.println("      Solusi: Pastikan sandi di HP adalah 12345678 persis.");
+      } else if (reason == 201) {
+        Serial.println("   👉 Alasan 201 (NO_AP_FOUND): Nama Hotspot 'RENO123' tidak terlihat oleh modul.");
+        Serial.println("      Solusi HP: Pastikan Hotspot HP AKTIF di frekuensi 2.4 GHz dan tidak disembunyikan.");
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+// =========================================================================
+// INISIALISASI & PEMINDAIAN WI-FI KE HOTSPOT RENO123
 // =========================================================================
 void startWiFiConnection() {
   Serial.println("\n==========================================");
@@ -193,46 +228,80 @@ void startWiFiConnection() {
   Serial.printf("📡 ESP32 MAC    : %s\n", WiFi.macAddress().c_str());
   Serial.println("==========================================");
 
-  // 1. Bersihkan data NVS lama dan reset radio Wi-Fi
+  // 1. Bersihkan data NVS lama
   WiFi.persistent(false);
   WiFi.disconnect(true);
-  delay(150);
+  delay(100);
 
-  // 2. Set mode Station murni
+  // 2. Set mode Station murni & matikan sleep
   WiFi.mode(WIFI_STA);
-
-  // 3. Matikan mode hemat daya radio (agar modul selalu siaga dan daya tangkap maksimal)
   WiFi.setSleep(false);
   WiFi.setAutoReconnect(true);
 
-  // 4. Mulai koneksi ke Hotspot
-  Serial.printf("⏳ Menyambung ke '%s'...", sta_ssid);
-  WiFi.begin(sta_ssid, sta_password);
+  // Aktifkan Protected Management Frames (PMF) untuk kompatibilitas Android (Mengatasi Reason 36 & 2 AUTH_EXPIRE)
+  wifi_config_t conf;
+  esp_wifi_get_config(WIFI_IF_STA, &conf);
+  conf.sta.pmf_cfg.capable = true;
+  conf.sta.pmf_cfg.required = false;
+  esp_wifi_set_config(WIFI_IF_STA, &conf);
 
-  // Tunggu maksimal 6 detik saat booting agar USB Serial tidak tertunda
+  // Register event callback untuk log diagnostik
+  WiFi.onEvent(onWiFiEvent);
+
+  // 3. Pemindaian cepat di sekitar untuk mendeteksi kanal & kekuatan sinyal RENO123
+  Serial.println("🔍 Memindai jaringan Wi-Fi 2.4 GHz di sekitar...");
+  int n = WiFi.scanNetworks(false, true); // Termasuk hidden SSID
+  bool found = false;
+  savedTargetChannel = 0;
+
+  if (n > 0) {
+    for (int i = 0; i < n; ++i) {
+      if (WiFi.SSID(i) == sta_ssid) {
+        found = true;
+        savedTargetChannel = WiFi.channel(i);
+        Serial.printf("🎯 [HOTSPOT DITEMUKAN!] SSID: %s | Kanal: %d | Sinyal: %d dBm\n",
+                      WiFi.SSID(i).c_str(), savedTargetChannel, WiFi.RSSI(i));
+        break;
+      }
+    }
+  }
+
+  if (!found) {
+    Serial.printf("⚠️ [PERHATIAN] SSID '%s' belum terlihat dalam pemindaian.\n", sta_ssid);
+    if (n > 0) {
+      Serial.println("   Daftar Wi-Fi yang berhasil dideteksi:");
+      int maxShow = (n < 4) ? n : 4;
+      for (int i = 0; i < maxShow; ++i) {
+        Serial.printf("   - %s (Kanal %d, %d dBm)\n", WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i));
+      }
+    } else {
+      Serial.println("   (Tidak ada jaringan Wi-Fi 2.4 GHz yang terdeteksi)");
+    }
+    Serial.println("👉 Tips: Pastikan Hotspot HP aktif di 2.4 GHz dan tidak disembunyikan.");
+  }
+
+  // 4. Mulai koneksi (Jika kanal diketahui, gunakan kanal langsung agar jabat tangan instan)
+  Serial.printf("⏳ Menyambung ke '%s'...", sta_ssid);
+  if (savedTargetChannel > 0) {
+    WiFi.begin(sta_ssid, sta_password, savedTargetChannel);
+  } else {
+    WiFi.begin(sta_ssid, sta_password);
+  }
+
+  // Tunggu maksimal 5 detik saat booting agar USB Serial tidak tertunda
   unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && (millis() - start < 6000)) {
-    delay(250);
+  while (WiFi.status() != WL_CONNECTED && (millis() - start < 5000)) {
+    delay(200);
     Serial.print(".");
   }
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n✅ [BERHASIL TERHUBUNG KE HOTSPOT RENO123!]");
-    Serial.printf("   SSID Aktif     : %s\n", WiFi.SSID().c_str());
-    Serial.printf("   IP Lokal ESP32 : %s\n", WiFi.localIP().toString().c_str());
-    Serial.printf("   Kekuatan Sinyal: %d dBm\n", WiFi.RSSI());
-    Serial.printf("   Wi-Fi Channel  : %d\n", WiFi.channel());
-    Serial.println("==========================================");
-
-    // Kirim detak jantung perdana ke server
     sendHeartbeatHTTPS();
   } else {
-    Serial.printf("\n⚠️ [BELUM TERKONEKSI] Status Code: %d\n", (int)WiFi.status());
-    Serial.println("💡 Tips Hotspot HP Android:");
-    Serial.println("   1. Pastikan pita frekuensi Hotspot diatur ke '2.4 GHz'.");
-    Serial.println("   2. Pada jenis keamanan Hotspot, pilih 'WPA2-Personal'.");
-    Serial.println("   3. ESP32 akan otomatis menyambung di latar belakang saat Hotspot siap.");
-    Serial.println("   4. Komunikasi kabel USB COM8 tetap AKTIF 100% untuk pengujian.");
+    Serial.printf("\nℹ️ [STATUS BOOT]: Wi-Fi belum tersambung (Status: %d).\n", (int)WiFi.status());
+    Serial.println("   ESP32 akan terus mencoba tersambung di latar belakang secara otomatis.");
+    Serial.println("   USB Serial COM8 SIAP DIGUNAKAN untuk dashboard web!");
   }
 }
 
@@ -346,10 +415,14 @@ void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     if (now - lastWifiAttempt >= 10000) {
       lastWifiAttempt = now;
-      Serial.printf("[Wi-Fi] Melakukan Force Reconnect ke '%s'...\n", sta_ssid);
+      Serial.printf("[Wi-Fi] Melakukan rekoneksi ke '%s'...\n", sta_ssid);
       WiFi.disconnect();
-      delay(100);
-      WiFi.begin(sta_ssid, sta_password);
+      delay(80);
+      if (savedTargetChannel > 0) {
+        WiFi.begin(sta_ssid, sta_password, savedTargetChannel);
+      } else {
+        WiFi.begin(sta_ssid, sta_password);
+      }
     }
   }
 
