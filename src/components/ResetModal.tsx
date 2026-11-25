@@ -49,29 +49,29 @@ export const ResetModal: React.FC<ResetModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200 max-h-[92dvh] flex flex-col">
         {/* Modal Header */}
-        <div className="bg-police-950 text-white p-6 flex items-center justify-between border-b border-police-900">
+        <div className="bg-police-950 text-white p-4 sm:p-6 flex items-center justify-between border-b border-police-900 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-600/30">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-600/30 shrink-0">
               <ShieldAlert className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Form Tindak Lanjut Insiden</h3>
-              <p className="text-xs text-slate-300">Konfirmasi penyelesaian darurat perbankan</p>
+              <h3 className="text-sm sm:text-base font-bold text-white">Form Tindak Lanjut Insiden</h3>
+              <p className="text-[11px] sm:text-xs text-slate-300">Konfirmasi penyelesaian darurat perbankan</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-police-900 transition-all"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-police-900 transition-all cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 overflow-y-auto flex-1">
           {/* Target Bank Card Info */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-1">

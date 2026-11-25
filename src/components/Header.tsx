@@ -68,14 +68,14 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-16 sm:h-20 bg-white border-b border-slate-200 px-3 sm:px-8 flex items-center justify-between shadow-xs sticky top-0 z-30">
+    <header className="h-14 sm:h-16 lg:h-20 bg-white border-b border-slate-200 px-2.5 sm:px-6 lg:px-8 flex items-center justify-between shadow-xs sticky top-0 z-30">
       {/* Title & Subtitle + Hamburger Menu */}
-      <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
         {/* Tombol Hamburger Drawer (Mobile Only) */}
         <button
           type="button"
           onClick={onToggleMobileMenu}
-          className="lg:hidden p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shrink-0 flex items-center justify-center min-w-[40px] min-h-[40px] cursor-pointer"
+          className="lg:hidden p-1.5 sm:p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors shrink-0 flex items-center justify-center min-w-[36px] min-h-[36px] cursor-pointer"
           title="Buka Menu Navigasi"
         >
           <Menu className="w-5 h-5 text-police-950" />
@@ -84,30 +84,30 @@ export const Header: React.FC<HeaderProps> = ({
         <img
           src="/logo.png"
           alt="Logo Siger Polresta Bandar Lampung"
-          className="lg:hidden h-10 sm:h-13 w-auto max-w-[44px] sm:max-w-[64px] object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.18)] shrink-0 transition-transform duration-200"
+          className="lg:hidden h-8 sm:h-11 w-auto max-w-[36px] sm:max-w-[54px] object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.18)] shrink-0 transition-transform duration-200"
         />
         <div className="min-w-0" title="BEMS: Bank Emergency Monitoring System - Polresta Bandar Lampung">
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <h2 className="text-sm sm:text-xl font-extrabold text-slate-900 tracking-tight truncate">
+            <h2 className="text-xs sm:text-base lg:text-xl font-extrabold text-slate-900 tracking-tight truncate">
               BEMS Polresta
             </h2>
-            <span className="hidden sm:inline-block bg-amber-50 text-amber-800 text-xs font-bold px-2.5 py-0.5 rounded-full border border-amber-300 shadow-xs">
+            <span className="hidden sm:inline-block bg-amber-50 text-amber-800 text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 rounded-full border border-amber-300 shadow-xs">
               Live Feed
             </span>
           </div>
-          <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate flex items-center gap-1.5">
-            <span className="font-bold text-[#102A43]">Bank Emergency Monitoring System</span>
+          <p className="text-[9px] sm:text-xs text-slate-500 font-medium truncate flex items-center gap-1.5">
+            <span className="font-bold text-[#102A43]">Bank Emergency Monitoring</span>
             <span className="hidden md:inline text-slate-300">•</span>
-            <span className="hidden md:inline text-slate-500">Pusat Pengawasan SPKT</span>
+            <span className="hidden md:inline text-slate-500">SPKT Polresta BDL</span>
           </p>
         </div>
       </div>
 
       {/* Action and Clock Controls */}
-      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Active Emergency Banner if Triggered */}
         {hasActiveAlarm && (
-          <div className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-red-600 to-red-700 text-white px-2.5 sm:px-3.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold shadow-lg shadow-red-600/40 border border-red-400/50 animate-bounce">
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-red-600 to-red-700 text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-bold shadow-lg shadow-red-600/40 border border-red-400/50 animate-bounce">
             <span className="w-2 h-2 rounded-full bg-white animate-ping" />
             <span className="tracking-wide hidden sm:inline">ALARM DARURAT</span>
             <span className="tracking-wide sm:hidden">BAHAYA</span>
@@ -131,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={handleToggleMute}
           title={isMuted ? 'Suara Sirine Dinonaktifkan (Klik untuk bunyikan)' : 'Suara Sirine Aktif (Klik untuk bisukan)'}
-          className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center min-w-[42px] min-h-[42px] active:scale-95 ${
+          className={`p-2 sm:p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center min-w-[36px] min-h-[36px] sm:min-w-[42px] sm:min-h-[42px] active:scale-95 ${
             isMuted
               ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
               : hasActiveAlarm
@@ -139,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
               : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
         >
-          {isMuted ? <VolumeX className="w-5 h-5 text-amber-600" /> : <Volume2 className="w-5 h-5 text-emerald-600" />}
+          {isMuted ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />}
         </button>
 
         {/* USB Hardware Serial Status Button (Desktop/Tablet) */}

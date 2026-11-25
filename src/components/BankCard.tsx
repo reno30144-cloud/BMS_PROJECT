@@ -131,40 +131,40 @@ export const BankCard: React.FC<BankCardProps> = ({
       )}
 
       {/* Main Content Area */}
-      <div className="p-5 sm:p-6">
+      <div className="p-4 sm:p-6">
         {/* Baris Meta Atas: UID & Status & Aksi */}
-        <div className="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-slate-100">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-[11px] font-mono font-bold text-[#102A43] bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/80 whitespace-nowrap">
+        <div className="flex items-center justify-between gap-1.5 mb-3 pb-2.5 border-b border-slate-100">
+          <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+            <span className="text-[10px] sm:text-[11px] font-mono font-bold text-[#102A43] bg-slate-100 px-1.5 sm:px-2 py-0.5 rounded-md border border-slate-200/80 shrink-0">
               {deviceUid}
             </span>
-            <span className="text-xs font-semibold text-slate-400 whitespace-nowrap">
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-400 truncate max-w-[90px] sm:max-w-none">
               • {bank.code}
             </span>
           </div>
 
           {/* Status Indicator Pill & Action Buttons */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {isStandby && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300/80 shadow-xs whitespace-nowrap">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping-slow"></span>
+              <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300/80 shadow-xs whitespace-nowrap">
+                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-ping-slow"></span>
                 STANDBY
               </span>
             )}
             {isTriggered && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-red-600 text-white shadow-md shadow-red-600/30 animate-bounce whitespace-nowrap">
-                <AlertOctagon className="w-3.5 h-3.5" />
+              <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-black bg-red-600 text-white shadow-md shadow-red-600/30 animate-bounce whitespace-nowrap">
+                <AlertOctagon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 BAHAYA
               </span>
             )}
             {isOffline && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
-                <WifiOff className="w-3.5 h-3.5 text-slate-400" />
+              <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
+                <WifiOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400" />
                 OFFLINE
               </span>
             )}
 
-            <div className="flex items-center gap-1 pl-2 border-l border-slate-200 ml-1">
+            <div className="flex items-center gap-0.5 pl-1 sm:pl-1.5 border-l border-slate-200 ml-0.5">
               {/* Tombol Edit Bank */}
               <button
                 type="button"
@@ -172,13 +172,13 @@ export const BankCard: React.FC<BankCardProps> = ({
                   e.stopPropagation();
                   setIsEditModalOpen(true);
                 }}
-                className="p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center active:scale-95"
+                className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center active:scale-95"
                 title={`Edit data ${bank.name} ${bank.branchName}`}
               >
-                <Edit3 className="w-4 h-4" />
+                <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
 
-              {/* Tombol Hapus (Trash2): Khusus Admin Command Center (Polsek Tidak Bisa Hapus) */}
+              {/* Tombol Hapus (Trash2): Khusus Admin Command Center */}
               {canDelete && (
                 <button
                   type="button"
@@ -187,10 +187,10 @@ export const BankCard: React.FC<BankCardProps> = ({
                     setIsDeleteModalOpen(true);
                     if (onDelete) onDelete(device);
                   }}
-                  className="p-2 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center active:scale-95"
+                  className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center active:scale-95"
                   title={`Hapus ${bank.name} ${bank.branchName}`}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               )}
             </div>
@@ -198,8 +198,8 @@ export const BankCard: React.FC<BankCardProps> = ({
         </div>
 
         {/* Baris Identitas Bank: Logo & Nama Bank */}
-        <div className="flex items-center gap-3.5 mb-4">
-          <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 p-1 flex items-center justify-center shrink-0 shadow-xs">
+        <div className="flex items-center gap-3 sm:gap-3.5 mb-3 sm:mb-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-slate-50 border border-slate-100 p-1 flex items-center justify-center shrink-0 shadow-xs">
             <img
               src="/bank-marker.png"
               alt="Logo Bank"
@@ -211,10 +211,10 @@ export const BankCard: React.FC<BankCardProps> = ({
             />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight" title={bank.name}>
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug line-clamp-1" title={bank.name}>
               {bank.name}
             </h3>
-            <p className="text-xs sm:text-sm font-semibold text-police-700 mt-0.5" title={bank.branchName}>
+            <p className="text-xs sm:text-sm font-semibold text-police-700 mt-0.5 truncate" title={bank.branchName}>
               {bank.branchName}
             </p>
           </div>
@@ -294,14 +294,14 @@ export const BankCard: React.FC<BankCardProps> = ({
       </div>
 
       {/* Action Footer */}
-      <div className={`p-3.5 sm:p-4 border-t flex items-center justify-between gap-2 ${
+      <div className={`p-3 sm:p-4 border-t flex items-center justify-between gap-2 ${
         isTriggered ? 'bg-red-100/70 border-red-200' : 'bg-slate-50/70 border-slate-100'
       }`}>
         {isTriggered ? (
           <div className="flex items-center gap-2 w-full">
             <button
               onClick={() => onReset(device)}
-              className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold min-h-[44px] py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-red-600/30 transition-all hover:scale-[1.01] active:scale-[0.99] border border-red-400/40 cursor-pointer"
+              className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold min-h-[42px] sm:min-h-[44px] py-2 sm:py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-red-600/30 transition-all hover:scale-[1.01] active:scale-[0.99] border border-red-400/40 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               <span>Tangani & Reset</span>
@@ -310,7 +310,7 @@ export const BankCard: React.FC<BankCardProps> = ({
               href={googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-slate-900 hover:bg-slate-800 text-white font-bold min-h-[44px] py-2.5 px-3.5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md transition-all shrink-0 border border-slate-700 active:scale-95"
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold min-h-[42px] sm:min-h-[44px] py-2 sm:py-2.5 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md transition-all shrink-0 border border-slate-700 active:scale-95"
               title="Buka rute panduan navigasi Google Maps GPS"
             >
               <Navigation className="w-4 h-4 text-emerald-400" />
@@ -319,12 +319,12 @@ export const BankCard: React.FC<BankCardProps> = ({
             </a>
           </div>
         ) : (
-          <>
+          <div className="flex items-center justify-between w-full gap-2">
             <button
               onClick={handleSimulateClick}
               disabled={isTriggering || isTriggered}
               title="Uji simulasi trigger bahaya"
-              className={`min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border shadow-xs active:scale-95 transition-all flex items-center justify-center ${
+              className={`min-h-[38px] sm:min-h-[42px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold border shadow-xs active:scale-95 transition-all flex items-center justify-center shrink-0 ${
                 isTriggering || isTriggered
                   ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                   : 'text-[#102A43] bg-white hover:bg-slate-100 hover:text-slate-950 border-slate-300 cursor-pointer'
@@ -332,10 +332,10 @@ export const BankCard: React.FC<BankCardProps> = ({
             >
               {isTriggering ? 'Memproses...' : 'Tes Tombol'}
             </button>
-            <span className="text-xs text-slate-500 font-semibold">
+            <span className="text-[11px] sm:text-xs text-slate-500 font-semibold truncate text-right">
               {isStandby ? '✓ Monitoring Aktif' : '⚠️ Perlu Pengecekan'}
             </span>
-          </>
+          </div>
         )}
       </div>
 

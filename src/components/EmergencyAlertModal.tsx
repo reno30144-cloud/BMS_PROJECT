@@ -93,33 +93,33 @@ export const EmergencyAlertModal: React.FC<EmergencyAlertModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
       {/* Outer Tactical Alert Modal Card */}
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border-2 border-red-500 overflow-hidden transform animate-in zoom-in-95 duration-200 text-slate-900 max-h-[94vh] flex flex-col">
+      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border-2 border-red-500 overflow-hidden transform animate-in zoom-in-95 duration-200 text-slate-900 max-h-[92dvh] flex flex-col">
         
         {/* Top Header: Solid Police Red Alert */}
-        <div className="relative bg-red-600 text-white p-6 border-b border-red-700 overflow-hidden">
-          <div className="relative z-10 flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3.5">
+        <div className="relative bg-red-600 text-white p-4 sm:p-6 border-b border-red-700 overflow-hidden shrink-0">
+          <div className="relative z-10 flex items-start justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
               {/* Radar Beacon Icon */}
-              <div className="w-12 h-12 rounded-2xl bg-white text-red-600 flex items-center justify-center shadow-lg shadow-black/10 shrink-0">
-                <AlertTriangle className="w-6 h-6 text-red-600 animate-bounce" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white text-red-600 flex items-center justify-center shadow-lg shadow-black/10 shrink-0">
+                <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 animate-bounce" />
               </div>
 
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-800 text-white shadow-xs flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-white"></span>
-                    PERINGATAN DARURAT KRITIS
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-red-800 text-white shadow-xs flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                    PERINGATAN DARURAT
                   </span>
-                  <span className="text-xs font-mono font-bold text-red-100 bg-red-700 px-2 py-0.5 rounded border border-red-500">
+                  <span className="text-[10px] sm:text-xs font-mono font-bold text-red-100 bg-red-700 px-1.5 sm:px-2 py-0.5 rounded border border-red-500">
                     UID: {device.deviceUid}
                   </span>
                 </div>
-                <h3 className="text-lg font-black text-white tracking-wide mt-1.5 flex items-center gap-2">
-                  <span>SINYAL PANIC BUTTON TERVERIFIKASI</span>
+                <h3 className="text-sm sm:text-lg font-black text-white tracking-wide mt-1 truncate">
+                  SINYAL PANIC BUTTON TERVERIFIKASI
                 </h3>
-                <p className="text-xs text-red-100 font-medium">
+                <p className="text-[10px] sm:text-xs text-red-100 font-medium truncate">
                   Pusat Komando SPKT • Polresta Bandar Lampung
                 </p>
               </div>
@@ -127,10 +127,10 @@ export const EmergencyAlertModal: React.FC<EmergencyAlertModalProps> = ({
 
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors shrink-0 border border-white/20"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors shrink-0 border border-white/20 cursor-pointer"
               title="Tutup Notifikasi"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
 

@@ -643,7 +643,7 @@ export default function DashboardPage() {
   const triggeredCount = devices.filter((d) => d.status === 'TRIGGERED').length;
 
   return (
-    <div className="relative flex h-screen bg-[#EEF2F6] text-slate-900 overflow-hidden font-sans animate-view-transition">
+    <div className="relative flex h-screen sm:h-screen min-h-[100dvh] max-h-[100dvh] bg-[#EEF2F6] text-slate-900 overflow-hidden font-sans animate-view-transition">
       {/* Fullscreen Red Strobe Flashing Emergency Alert (Layar Berkedip Merah Darurat) */}
       {hasTriggered && (
         <div
@@ -691,14 +691,14 @@ export default function DashboardPage() {
         />
 
         {/* Content View */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-8 pb-24 lg:pb-8">
+        <main className="flex-1 overflow-y-auto p-2.5 sm:p-5 lg:p-8 pb-24 lg:pb-8">
           <div className="max-w-7xl mx-auto">
             {/* Tab: Ruang Pantau */}
             {activeTab === 'monitoring' && (
               <div key="monitoring" className="animate-view-transition">
-                {/* USB Reconnect Helper Alert if not connected */}
+                {/* USB Reconnect Helper Alert if not connected (Khusus Desktop/Laptop) */}
                 {!isUsbConnected && (
-                  <div className="mb-6 p-4 rounded-2xl bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-slate-800 shadow-lg">
+                  <div className="hidden md:flex mb-6 p-4 rounded-2xl bg-slate-900 text-white flex-col sm:flex-row sm:items-center justify-between gap-3 border border-slate-800 shadow-lg">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-police-800 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
                         <Cable className="w-5 h-5" />
@@ -732,106 +732,73 @@ export default function DashboardPage() {
                   const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${POLRESTA_HQ_POSITION[0]},${POLRESTA_HQ_POSITION[1]}&destination=${bankLat},${bankLng}&travelmode=driving`;
 
                   return (
-                    <div className="mb-6 p-5 rounded-2xl bg-red-600 text-white shadow-xl shadow-red-600/25 border-2 border-red-500 relative overflow-hidden">
-                      <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="mb-3.5 sm:mb-6 p-3.5 sm:p-5 rounded-2xl bg-red-600 text-white shadow-xl shadow-red-600/25 border-2 border-red-500 relative overflow-hidden">
+                      <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
                         {/* Left: Emergency Status & Bank Info */}
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-white text-red-600 flex items-center justify-center shadow-md shrink-0">
-                            <AlertTriangle className="w-6 h-6 text-red-600 animate-bounce" />
+                        <div className="flex items-start gap-3 sm:gap-4">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white text-red-600 flex items-center justify-center shadow-md shrink-0">
+                            <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 animate-bounce" />
                           </div>
 
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-800 text-white shadow-xs flex items-center gap-1">
-                                <span className="w-2 h-2 rounded-full bg-white"></span>
-                                PERINGATAN DARURAT KRITIS: {triggeredCount} BANK MENGALAMI SITUASI BAHAYA
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                              <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-red-800 text-white shadow-xs flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                                PERINGATAN DARURAT: {triggeredCount} BANK BAHAYA
                               </span>
                               {primaryTriggered && (
-                                <span className="text-[11px] font-mono font-bold text-red-100 bg-red-700 px-2 py-0.5 rounded border border-red-500">
+                                <span className="text-[10px] sm:text-[11px] font-mono font-bold text-red-100 bg-red-700 px-1.5 sm:px-2 py-0.5 rounded border border-red-500">
                                   UID: {primaryTriggered.deviceUid}
                                 </span>
                               )}
                             </div>
 
                             {primaryTriggered && (
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                                <span className="font-extrabold text-base text-white">
+                              <div className="text-xs">
+                                <h4 className="font-extrabold text-sm sm:text-base text-white truncate">
                                   {primaryTriggered.bank.name} • {primaryTriggered.bank.branchName}
-                                </span>
-                                <span className="text-red-100 font-medium">
+                                </h4>
+                                <p className="text-red-100 text-[11px] sm:text-xs font-medium line-clamp-1 mt-0.5">
                                   {primaryTriggered.bank.address}
-                                </span>
+                                </p>
                               </div>
                             )}
 
                             {/* Telepon darurat & estimasi jarak */}
                             {primaryTriggered && (
-                              <div className="flex flex-wrap items-center gap-3 text-xs pt-1">
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs pt-0.5">
                                 <a
                                   href={`tel:${primaryTriggered.bank.emergencyContact.split('/')[0].trim()}`}
-                                  className="inline-flex items-center gap-1.5 font-mono font-bold text-emerald-800 bg-white hover:bg-emerald-50 px-3 py-1 rounded-xl shadow-xs transition-all"
+                                  className="inline-flex items-center gap-1 font-mono font-bold text-emerald-800 bg-white hover:bg-emerald-50 px-2.5 py-0.5 rounded-lg shadow-xs text-[11px]"
                                   title="Panggil langsung kontak darurat bank"
                                 >
-                                  <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
+                                  <PhoneCall className="w-3 h-3 text-emerald-600" />
                                   <span>{primaryTriggered.bank.emergencyContact}</span>
                                 </a>
-                                <span className="text-red-100 font-mono font-semibold flex items-center gap-1">
-                                  <Car className="w-3.5 h-3.5 text-white" />
-                                  <span>{roadDistKm} km dari Mako (~{etaMinutes} menit)</span>
-                                </span>
-                                <span className="text-red-200 text-[11px]">
-                                  Sektor: <strong className="text-white">{primaryTriggered.bank.policeSector}</strong>
+                                <span className="text-red-100 font-mono font-semibold flex items-center gap-1 text-[11px]">
+                                  <Car className="w-3 h-3 text-white" />
+                                  <span>{roadDistKm} km (~{etaMinutes} min)</span>
                                 </span>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Right: Sound Mode & Quick Action Buttons */}
-                        <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-end lg:self-center">
-                          {/* Siren Mode Switcher on Callout */}
-                          <div className="flex items-center gap-1 bg-red-700/90 border border-red-500 p-1 rounded-xl text-xs">
-                            <span className="text-[10px] text-red-100 font-bold px-1.5 flex items-center gap-1">
-                              <Volume2 className="w-3 h-3 text-white" />
-                              Sirine:
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => alarmAudio.setMode('wail')}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                                alarmAudio.getMode() === 'wail'
-                                  ? 'bg-white text-red-700 shadow-xs'
-                                  : 'text-red-100 hover:text-white'
-                              }`}
-                              title="Set mode sirine panjang (Wail ~6.7s)"
-                            >
-                              🚓 Wail
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => alarmAudio.setMode('yelp')}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                                alarmAudio.getMode() === 'yelp'
-                                  ? 'bg-white text-red-700 shadow-xs'
-                                  : 'text-red-100 hover:text-white'
-                              }`}
-                              title="Set mode sirine cepat (Yelp)"
-                            >
-                              🚨 Yelp
-                            </button>
-                          </div>
-
-                          {/* Tombol Rute di Peta */}
+                        {/* Right: Quick Action Buttons */}
+                        <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t border-red-500/60 lg:border-t-0">
+                          {/* Tombol Utama: Tangani & Reset */}
                           <button
                             type="button"
                             onClick={() => {
-                              setActiveTab('map');
+                              if (primaryTriggered) {
+                                setResetTargetDevice(primaryTriggered);
+                              }
                             }}
-                            className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95 border border-slate-700 cursor-pointer"
-                            title="Tampilkan peta rute navigasi dari Mako ke lokasi bank"
+                            className="flex-1 sm:flex-none px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 text-xs font-black transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                            title="Selesaikan dan reset status darurat bank ini"
                           >
-                            <Navigation className="w-4 h-4 text-emerald-400" />
-                            <span>Peta Radar</span>
+                            <ShieldCheck className="w-4 h-4 text-slate-900" />
+                            <span>Tangani & Reset</span>
                           </button>
 
                           {/* Tombol GPS Google Maps */}
@@ -839,11 +806,11 @@ export default function DashboardPage() {
                             href={googleMapsUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95 border border-slate-700"
+                            className="px-3 py-2 sm:py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 active:scale-95 border border-slate-700"
                             title="Buka rute Google Maps GPS langsung"
                           >
-                            <ExternalLink className="w-4 h-4 text-emerald-400" />
-                            <span>GPS ({roadDistKm} km)</span>
+                            <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>GPS</span>
                           </a>
 
                           {/* Tombol Detail SOP */}
@@ -855,24 +822,9 @@ export default function DashboardPage() {
                                 setIsEmergencyAlertOpen(true);
                               }
                             }}
-                            className="px-4 py-2.5 rounded-xl bg-white text-red-700 hover:bg-red-50 text-xs font-black transition-all shadow-md active:scale-95"
+                            className="px-3 py-2 sm:py-2.5 rounded-xl bg-white text-red-700 hover:bg-red-50 text-xs font-black transition-all shadow-md active:scale-95 cursor-pointer"
                           >
-                            🚨 SOP & Detail
-                          </button>
-
-                          {/* Tombol Cepat: Tangani & Reset Status */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (primaryTriggered) {
-                                setResetTargetDevice(primaryTriggered);
-                              }
-                            }}
-                            className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 text-xs font-black transition-all shadow-md active:scale-95 flex items-center gap-1.5"
-                            title="Selesaikan dan reset status darurat bank ini"
-                          >
-                            <ShieldCheck className="w-4 h-4 text-slate-900" />
-                            <span>Tangani & Reset</span>
+                            SOP
                           </button>
                         </div>
                       </div>
@@ -888,19 +840,45 @@ export default function DashboardPage() {
                 />
 
                 {/* Filter & Search Bar */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-                  <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mr-1">
-                      <Filter className="w-3.5 h-3.5" />
+                <div className="space-y-2.5 mb-4 sm:mb-6">
+                  {/* Baris 1: Pencarian & Tambah Bank */}
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="relative flex-1">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Cari bank, cabang, alamat..."
+                        className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 bg-white focus:outline-hidden focus:ring-2 focus:ring-police-700 shadow-2xs"
+                      />
+                    </div>
+
+                    {/* Tombol Tambah Bank Mitra / Polsek */}
+                    <button
+                      onClick={() => setIsAddBankOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-police-900 hover:bg-police-850 text-white text-xs font-semibold transition-all shadow-2xs hover:shadow-md active:scale-95 whitespace-nowrap border border-emerald-500/30 cursor-pointer shrink-0"
+                      title="Tambah Bank Mitra Baru atau Kantor Polsek (Server)"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="hidden xs:inline">Tambah Bank</span>
+                      <span className="xs:hidden">+ Bank</span>
+                    </button>
+                  </div>
+
+                  {/* Baris 2: Filter Chips Horizontal Scrollable */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-0.5 no-scrollbar">
+                    <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1 shrink-0">
+                      <Filter className="w-3 h-3" />
                       Filter:
                     </span>
                     {(['ALL', 'STANDBY', 'TRIGGERED', 'OFFLINE'] as const).map((filterKey) => (
                       <button
                         key={filterKey}
                         onClick={() => setSelectedFilter(filterKey)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                        className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
                           selectedFilter === filterKey
-                            ? 'bg-police-900 text-white shadow-sm'
+                            ? 'bg-police-900 text-white shadow-xs'
                             : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                       >
@@ -914,41 +892,18 @@ export default function DashboardPage() {
                       </button>
                     ))}
                   </div>
-
-                  <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                    {/* Tombol Tambah Bank Mitra / Polsek */}
-                    <button
-                      onClick={() => setIsAddBankOpen(true)}
-                      className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-police-900 hover:bg-police-850 text-white text-xs font-semibold transition-all shadow-xs hover:shadow-md active:scale-95 whitespace-nowrap border border-emerald-500/30 cursor-pointer"
-                      title="Tambah Bank Mitra Baru atau Kantor Polsek (Server)"
-                    >
-                      <PlusCircle className="w-4 h-4 text-emerald-400" />
-                      <span>Tambah Bank / Polsek</span>
-                    </button>
-
-                    <div className="relative flex-1 sm:w-60">
-                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Cari lokasi bank..."
-                        className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 bg-white focus:outline-hidden focus:ring-2 focus:ring-police-700 shadow-xs"
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 {/* Grid Kartu Bank */}
                 {filteredDevices.length === 0 ? (
-                  <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-xs">
+                  <div className="bg-white rounded-2xl p-8 sm:p-12 text-center border border-slate-200 shadow-xs">
                     <p className="text-sm font-semibold text-slate-600">Tidak ada data bank yang cocok</p>
                     <p className="text-xs text-slate-400 mt-1">
                       Coba ubah filter status atau kata kunci pencarian Anda.
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-6">
                     {filteredDevices.map((device) => (
                       <BankCard
                         key={device.id}
@@ -1207,6 +1162,70 @@ export default function DashboardPage() {
           setActiveTab('map');
         }}
       />
+
+      {/* Mobile Bottom Navigation Bar (Khusus Smartphone / Layar < lg) */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#102A43]/95 backdrop-blur-md border-t border-white/10 text-white px-2 py-1.5 shadow-2xl flex items-center justify-around select-none">
+        <button
+          type="button"
+          onClick={() => setActiveTab('monitoring')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer min-w-[54px] relative active:scale-95 ${
+            activeTab === 'monitoring' ? 'text-amber-400 font-bold' : 'text-blue-200/70 hover:text-white'
+          }`}
+        >
+          <div className="relative">
+            <Radio className="w-5 h-5" />
+            {triggeredCount > 0 && (
+              <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
+            )}
+            {triggeredCount > 0 && (
+              <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-red-600" />
+            )}
+          </div>
+          <span className="text-[10px] tracking-tight mt-0.5">Pantau</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('map')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer min-w-[54px] active:scale-95 ${
+            activeTab === 'map' ? 'text-amber-400 font-bold' : 'text-blue-200/70 hover:text-white'
+          }`}
+        >
+          <MapIcon className="w-5 h-5" />
+          <span className="text-[10px] tracking-tight mt-0.5">Peta</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('banks')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer min-w-[54px] active:scale-95 ${
+            activeTab === 'banks' ? 'text-amber-400 font-bold' : 'text-blue-200/70 hover:text-white'
+          }`}
+        >
+          <Building2 className="w-5 h-5" />
+          <span className="text-[10px] tracking-tight mt-0.5">Bank</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('polsek')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer min-w-[54px] active:scale-95 ${
+            activeTab === 'polsek' ? 'text-amber-400 font-bold' : 'text-blue-200/70 hover:text-white'
+          }`}
+        >
+          <ShieldCheck className="w-5 h-5" />
+          <span className="text-[10px] tracking-tight mt-0.5">Polsek</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-blue-200/70 hover:text-white transition-all cursor-pointer min-w-[54px] active:scale-95"
+        >
+          <Menu className="w-5 h-5" />
+          <span className="text-[10px] tracking-tight mt-0.5">Menu</span>
+        </button>
+      </nav>
     </div>
   );
 }
