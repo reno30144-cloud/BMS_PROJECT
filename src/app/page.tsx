@@ -40,6 +40,10 @@ export default function DashboardPage() {
   const [lastAlertedTriggerTime, setLastAlertedTriggerTime] = useState<string | null>(null);
   const [dismissedIncidentTime, setDismissedIncidentTime] = useState<string | null>(null);
 
+  // Kunci penahan pemulihan status: Mencegah race condition polling saat admin baru saja me-reset insiden
+  const recentlyResetUidsRef = React.useRef<{ [uid: string]: number }>({});
+  const resolvedTriggerTimesRef = React.useRef<Set<string>>(new Set());
+
   // Kunci Status Darurat Aktif: Sirine TIDAK AKAN PERNAH BERHENTI sebelum admin menekan Reset
   const [activeEmergencyUids, setActiveEmergencyUids] = useState<string[]>([]);
   const activeEmergencyUidsRef = React.useRef<string[]>(activeEmergencyUids);
@@ -114,6 +118,24 @@ export default function DashboardPage() {
     fetchOperatorData();
   }, []);
 
+  // Hydrate devices dari cache localStorage saat pertama kali render di browser
+  // Mencegah kedipan angka total bank jadi 1 saat refresh halaman
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('bems_cached_devices');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDevices(parsed);
+          }
+        }
+      } catch (err) {
+        console.warn('Gagal membaca cache lokal perangkat:', err);
+      }
+    }
+  }, []);
+
   // Fetch device states from server API
   const fetchStatus = useCallback(async () => {
     try {
@@ -127,7 +149,15 @@ export default function DashboardPage() {
       if (res.ok) {
         const json = await res.json();
         if (json.data?.devices) {
-          const incomingDevices: Device[] = json.data.devices;
+          const now = Date.now();
+          // Terapkan optimistic lock untuk mencegah race condition polling saat baru saja di-reset
+          const incomingDevices: Device[] = json.data.devices.map((d: Device) => {
+            const until = recentlyResetUidsRef.current[d.deviceUid.toLowerCase()] || 0;
+            if (until > now && d.status === 'TRIGGERED') {
+              return { ...d, status: 'STANDBY' as const };
+            }
+            return d;
+          });
 
           // Sinkronkan daftar perangkat yang berstatus TRIGGERED langsung dari server
           const serverTriggered = incomingDevices
@@ -141,14 +171,20 @@ export default function DashboardPage() {
           // Update state devices langsung dari server
           setDevices(incomingDevices);
 
-          // Jika SEMUA perangkat di server sudah berstatus STANDBY (sudah diselesaikan salah satu admin/polsek):
+          // Simpan ke cache lokal agar refresh berikutnya langsung instan sinkron
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('bems_cached_devices', JSON.stringify(incomingDevices));
+            } catch {}
+          }
+
+          // Jika SEMUA perangkat di server sudah berstatus STANDBY:
           // Otomatis matikan sirine dan tutup popup darurat di seluruh layar client yang sedang terbuka
           if (serverTriggered.length === 0) {
             alarmAudio.stop();
             setIsEmergencyAlertOpen(false);
             setEmergencyAlertTargetDevice(null);
             setResetTargetDevice(null);
-            setLastAlertedTriggerTime(null);
           }
         }
         if (json.data?.logs) {
@@ -257,11 +293,17 @@ export default function DashboardPage() {
 
   // Otomatis Buka POPUP MERAH (EmergencyAlertModal) saat status TRIGGERED aktif
   useEffect(() => {
-    const triggeredDev = devices.find((d) => d.status === 'TRIGGERED');
+    const now = Date.now();
+    const triggeredDev = devices.find((d) => {
+      const until = recentlyResetUidsRef.current[d.deviceUid.toLowerCase()] || 0;
+      return d.status === 'TRIGGERED' && until <= now;
+    });
+
     if (triggeredDev) {
       const triggerTime = triggeredDev.lastTriggeredAt || (triggeredDev as any).updatedAt || `${triggeredDev.deviceUid}-active`;
-      // Buka modal hanya jika belum pernah dibuka untuk insiden ini dan belum ditutup manual oleh user
-      if (triggerTime !== lastAlertedTriggerTime && triggerTime !== dismissedIncidentTime) {
+      const isResolved = resolvedTriggerTimesRef.current.has(triggerTime);
+      // Buka modal hanya jika belum pernah dibuka untuk insiden ini, belum di-resolve, dan belum ditutup manual oleh user
+      if (!isResolved && triggerTime !== lastAlertedTriggerTime && triggerTime !== dismissedIncidentTime) {
         setEmergencyAlertTargetDevice(triggeredDev);
         setIsEmergencyAlertOpen(true);
         setLastAlertedTriggerTime(triggerTime);
@@ -272,8 +314,6 @@ export default function DashboardPage() {
       setIsEmergencyAlertOpen(false);
       setEmergencyAlertTargetDevice(null);
       setResetTargetDevice(null);
-      setLastAlertedTriggerTime(null);
-      setDismissedIncidentTime(null);
     }
   }, [devices, lastAlertedTriggerTime, dismissedIncidentTime]);
 
@@ -281,6 +321,9 @@ export default function DashboardPage() {
   const handleTriggerEmergency = async (deviceUid: string): Promise<number> => {
     const startTime = performance.now();
     const cleanUid = (deviceUid || '').trim().toLowerCase();
+
+    // Hapus proteksi reset sebelumnya karena ada pemicu darurat baru yang sah
+    delete recentlyResetUidsRef.current[cleanUid];
 
     // Debounce 2500ms per UID: Cegah trigger dobel jika tertekan 2 kali atau masuk via USB dan Wi-Fi bersamaan
     const now = Date.now();
@@ -482,27 +525,37 @@ export default function DashboardPage() {
   // Handle Reset from Operator Modal - SATU-SATUNYA TITIK PENGHENTIAN SIRINE OLEH ADMIN
   const handleConfirmReset = async (deviceUid: string, operatorName: string, notes: string) => {
     const cleanUid = (deviceUid || '').trim().toLowerCase();
+    const now = Date.now();
 
-    // 1. Lepaskan kunci dari daftar insiden aktif secara instan dan sinkron
+    // 1. Kunci proteksi UID ini selama 5 detik dari polling server basi (stale in-flight polling)
+    recentlyResetUidsRef.current[cleanUid] = now + 5000;
+
+    // 2. Tandai timestamp pemicu darurat saat ini sebagai sudah diselesaikan agar popup TIDAK PERNAH memantul / muncul lagi
+    const currentDev = devicesRef.current.find((d) => d.deviceUid.toLowerCase() === cleanUid);
+    const currentTriggerTime = currentDev?.lastTriggeredAt || (currentDev as any)?.updatedAt || `${cleanUid}-active`;
+    resolvedTriggerTimesRef.current.add(currentTriggerTime);
+    setDismissedIncidentTime(currentTriggerTime);
+    setLastAlertedTriggerTime(currentTriggerTime);
+
+    // 3. Lepaskan kunci dari daftar insiden aktif secara instan dan sinkron
     const remainingUids = activeEmergencyUidsRef.current.filter((u) => u.toLowerCase() !== cleanUid);
     activeEmergencyUidsRef.current = remainingUids;
     setActiveEmergencyUids(remainingUids);
 
-    // 2. Periksa apakah masih ada perangkat lain yang statusnya TRIGGERED
+    // 4. Periksa apakah masih ada perangkat lain yang statusnya TRIGGERED
     const remainingInDevices = devicesRef.current.some(
       (d) => d.status === 'TRIGGERED' && d.deviceUid.toLowerCase() !== cleanUid
     );
 
-    // 3. Sirine HANYA berhenti jika SEMUA insiden darurat sudah di-reset oleh admin
+    // 5. Sirine & Modal HANYA berhenti jika SEMUA insiden darurat sudah di-reset oleh admin
     if (remainingUids.length === 0 && !remainingInDevices) {
       alarmAudio.stop();
       setIsEmergencyAlertOpen(false);
       setEmergencyAlertTargetDevice(null);
-      setLastAlertedTriggerTime(null);
     }
     setResetTargetDevice(null);
 
-    // 4. Kembalikan status perangkat ke STANDBY di local state seketika
+    // 6. Kembalikan status perangkat ke STANDBY di local state seketika
     setDevices((prev) =>
       prev.map((d) =>
         d.deviceUid.toLowerCase() === cleanUid
@@ -511,7 +564,7 @@ export default function DashboardPage() {
       )
     );
 
-    // 4. Jika port USB sedang terhubung, kirim sinyal RESET ke hardware ESP32 agar LED mati
+    // 7. Jika port USB sedang terhubung, kirim sinyal RESET ke hardware ESP32 agar LED mati
     if (serialPortRef.current?.writable) {
       try {
         const writer = serialPortRef.current.writable.getWriter();
@@ -522,6 +575,7 @@ export default function DashboardPage() {
       }
     }
 
+    // 8. Kirim sinyal reset ke backend
     await fetch('/api/v1/emergency/reset', {
       method: 'POST',
       headers: {
